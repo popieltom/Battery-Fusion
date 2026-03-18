@@ -1,0 +1,129 @@
+# =============================================================
+# BATTERY FUSION — Template sensors (uniwersalne)
+# Wersja: 2.0
+#
+# Wszystkie wartości czytane z input_number/input_text/input_boolean
+# — nie ma hardkodowanych stałych.
+# =============================================================
+
+template:
+  - sensor:
+
+      # ---------------------------------------------------------
+      # GŁÓWNY SENSOR SoC (Coulomb Counter)
+      # ---------------------------------------------------------
+      - name: "Battery Fusion SOC"
+        unique_id: battery_fusion_soc
+        unit_of_measurement: "%"
+        device_class: battery
+        state_class: measurement
+        icon: mdi:battery-charging
+        state: >
+          {% set energy = states('input_number.bf_battery_energy_kwh') | float(0) %}
+          {% set cap = states('input_number.bf_battery_1_capacity_kwh') | float(0)
+                     + states('input_number.bf_battery_2_capacity_kwh') | float(0) %}
+          {% if cap > 0 %}
+            {{ (energy / cap * 100) | round(1) }}
+          {% else %}
+            0
+          {% endif %}
+        attributes:
+          energy_kwh: >
+            {{ states('input_number.bf_battery_energy_kwh') | float(0) | round(3) }}
+          total_capacity_kwh: >
+            {{ (states('input_number.bf_battery_1_capacity_kwh') | float(0)
+              + states('input_number.bf_battery_2_capacity_kwh') | float(0)) | round(1) }}
+          battery_1_capacity_kwh: >
+            {{ states('input_number.bf_battery_1_capacity_kwh') | float(0) }}
+          battery_2_capacity_kwh: >
+            {{ states('input_number.bf_battery_2_capacity_kwh') | float(0) }}
+          battery_1_kwh_est: >
+            {% set energy = states('input_number.bf_battery_energy_kwh') | float(0) %}
+            {% set cap1 = states('input_number.bf_battery_1_capacity_kwh') | float(0) %}
+            {% set cap_total = cap1 + states('input_number.bf_battery_2_capacity_kwh') | float(0) %}
+            {% if cap_total > 0 %}
+              {{ (energy * cap1 / cap_total) | round(2) }}
+            {% else %}0{% endif %}
+          battery_2_kwh_est: >
+            {% set energy = states('input_number.bf_battery_energy_kwh') | float(0) %}
+            {% set cap2 = states('input_number.bf_battery_2_capacity_kwh') | float(0) %}
+            {% set cap_total = states('input_number.bf_battery_1_capacity_kwh') | float(0) + cap2 %}
+            {% if cap_total > 0 %}
+              {{ (energy * cap2 / cap_total) | round(2) }}
+            {% else %}0{% endif %}
+          battery_1_soc_est: >
+            {% set energy = states('input_number.bf_battery_energy_kwh') | float(0) %}
+            {% set cap1 = states('input_number.bf_battery_1_capacity_kwh') | float(0) %}
+            {% set cap_total = cap1 + states('input_number.bf_battery_2_capacity_kwh') | float(0) %}
+            {% if cap_total > 0 and cap1 > 0 %}
+              {{ (energy * cap1 / cap_total / cap1 * 100) | round(1) }}
+            {% else %}0{% endif %}
+          battery_2_soc_est: >
+            {% set energy = states('input_number.bf_battery_energy_kwh') | float(0) %}
+            {% set cap2 = states('input_number.bf_battery_2_capacity_kwh') | float(0) %}
+            {% set cap_total = states('input_number.bf_battery_1_capacity_kwh') | float(0) + cap2 %}
+            {% if cap_total > 0 and cap2 > 0 %}
+              {{ (energy * cap2 / cap_total / cap2 * 100) | round(1) }}
+            {% else %}0{% endif %}
+          battery_count: >
+            {{ states('input_select.bf_battery_count') }}
+          chemistry: >
+            {{ states('input_select.bf_battery_chemistry') }}
+          sign_inverted: >
+            {{ states('input_boolean.bf_power_sign_inverted') == 'on' }}
+          note: >
+            Per-battery values are PROPORTIONAL ESTIMATES only.
+            Real discharge ratio depends on internal resistance and BMS behavior.
+
+      # ---------------------------------------------------------
+      # SENSOR MOCY — znormalizowany (uwzględnia odwrócony znak)
+      # Zawsze: wartość DODATNIA = rozładowanie, UJEMNA = ładowanie
+      # ---------------------------------------------------------
+      - name: "Battery Fusion Power Normalized"
+        unique_id: battery_fusion_power_normalized
+        unit_of_measurement: W
+        device_class: power
+        state_class: measurement
+        icon: mdi:lightning-bolt
+        state: >
+          {% set sensor = states('input_text.bf_power_sensor') %}
+          {% set raw = states(sensor) | float(0) %}
+          {% if states('input_boolean.bf_power_sign_inverted') == 'on' %}
+            {{ -raw }}
+          {% else %}
+            {{ raw }}
+          {% endif %}
+        attributes:
+          raw_value: >
+            {{ states(states('input_text.bf_power_sensor')) | float(0) }}
+          sign_inverted: >
+            {{ states('input_boolean.bf_power_sign_inverted') == 'on' }}
+          source_sensor: >
+            {{ states('input_text.bf_power_sensor') }}
+
+      # ---------------------------------------------------------
+      # STATUS systemu
+      # ---------------------------------------------------------
+      - name: "Battery Fusion Status"
+        unique_id: battery_fusion_status
+        icon: mdi:information
+        state: >
+          {% set soc = states('sensor.battery_fusion_soc') | float(0) %}
+          {% set power = states('sensor.battery_fusion_power_normalized') | float(0) %}
+          {% set low = states('input_number.bf_low_soc_threshold') | float(15) %}
+          {% if soc < low %}
+            low_soc
+          {% elif power > 100 %}
+            discharging
+          {% elif power < -100 %}
+            charging
+          {% else %}
+            idle
+          {% endif %}
+        attributes:
+          soc_pct: >
+            {{ states('sensor.battery_fusion_soc') | float(0) }}
+          power_w: >
+            {{ states('sensor.battery_fusion_power_normalized') | float(0) }}
+          voltage: >
+            {{ states(states('input_text.bf_voltage_sensor')) | float(0) }}
