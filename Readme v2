@@ -1,3 +1,20 @@
+Control ANY battery system in Home Assistant — even mixed batteries (DIY + commercial).
+Steruj KAŻDYM systemem akumulatorowym w Home Assistant — nawet w przypadku zestawów mieszanych (akumulatory własnej produkcji i dostępne w sprzedaży).
+
+❌ Problem:
+- inverter shows wrong SOC
+- can't handle multiple batteries
+
+❌ Problem:
+- falownik wyświetla nieprawidłowy poziom naładowania (SOC)
+- nie obsługuje wielu akumulatorów
+
+✅ Solution:
+- Battery Fusion fixes this in Home Assistant
+
+✅ Rozwiązanie:
+- Wtyczka Battery Fusion rozwiązuje ten problem w Home Assistant
+
 # 🔋 Battery Fusion — Home Assistant
 
 > Uniwersalne zarządzanie magazynami energii LiFePO4 w Home Assistant.  
