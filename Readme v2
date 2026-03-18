@@ -165,6 +165,8 @@ Po wdrożeniu YamBMS:
 
 **Battery Fusion** is a universal Home Assistant integration for **accurate monitoring and management of energy storage systems** connected to any inverter.
 
+Battery Fusion creates a virtual battery system in Home Assistant — combining multiple batteries into one accurate SOC model.
+
 No hardcoded values — everything is configured through the HA interface.
 
 ### Supported inverters & chemistries
