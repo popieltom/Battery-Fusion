@@ -15,6 +15,16 @@ Control ANY battery system in Home Assistant — even mixed batteries (DIY + com
 
 Battery Fusion solves this in Home Assistant using Coulomb Counting.
 
+## 🔥 Key Feature
+
+Works with mixed battery systems:
+
+- DIY battery (JK BMS)
+- Commercial ESS (Felicity, Pylontech, etc.)
+- Any combination
+
+No inverter support required.
+
 ---
 
 ## 🇵🇱
@@ -28,7 +38,7 @@ Steruj KAŻDYM systemem akumulatorowym w Home Assistant — nawet mieszanym (DIY
 
 ### Co to jest?
 
-**Battery Fusion** to integracja dla Home Assistant która pozwala na **precyzyjne monitorowanie i zarządzanie magazynami energii** podłączonymi do dowolnego falownika.
+**Battery Fusion** to integracja dla Home Assistant, która pozwala na **precyzyjne monitorowanie i zarządzanie magazynami energii** podłączonymi do dowolnego falownika.
 
 Nie ma hardkodowanych wartości — wszystko konfiguruje się przez interfejs HA.
 
@@ -68,7 +78,16 @@ Falownik ──Modbus/SolarmanAPI──► Home Assistant
 
 ### Instalacja
 
-#### Krok 1 — Skopiuj pliki do `/config`
+## ⚡ Szybki start (2 min)
+1. Skopiuj pliki do katalogu `/config`
+2. Dodaj do pliku configuration.yaml:
+homeassistant:
+  packages: !include_dir_named packages
+3. Uruchom ponownie Home Assistant
+4. Ustaw:
+- pojemność baterii
+- czujnik mocy baterii
+✅ Gotowe
 
 ```
 battery-fusion-ha/
@@ -177,7 +196,21 @@ No hardcoded values — everything is configured through the HA interface.
 
 ### Installation
 
-#### Step 1 — Copy files to `/config`
+## ⚡ Quick Start (2 min)
+
+1. Copy files to `/config`
+2. Add to configuration.yaml:
+
+homeassistant:
+  packages: !include_dir_named packages
+
+3. Restart Home Assistant
+
+4. Set:
+- battery capacity
+- battery power sensor
+
+✅ Done
 
 ```
 battery-fusion-ha/
