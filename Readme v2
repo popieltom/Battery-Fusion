@@ -1,0 +1,273 @@
+# 🔋 Battery Fusion — Home Assistant
+
+> Uniwersalne zarządzanie magazynami energii LiFePO4 w Home Assistant.  
+> Działa z każdym falownikiem, dowolną liczbą baterii i każdą chemią ogniw.
+
+---
+
+## 🇵🇱 Polski
+
+### Co to jest?
+
+**Battery Fusion** to integracja dla Home Assistant która pozwala na **precyzyjne monitorowanie i zarządzanie magazynami energii** podłączonymi do dowolnego falownika.
+
+Nie ma hardkodowanych wartości — wszystko konfiguruje się przez interfejs HA.
+
+### Obsługiwane konfiguracje
+
+| Falownik | Status | Uwagi |
+|---|---|---|
+| Deye / Solarman | ✅ Testowane | Znak mocy normalny (+ = rozładowanie) |
+| Sofar | ✅ Obsługiwane | Włącz `bf_power_sign_inverted` |
+| Growatt | ✅ Obsługiwane | Znak mocy normalny |
+| Victron | ✅ Obsługiwane | Oddzielne sensory mocy |
+| Solis | ✅ Obsługiwane | Znak mocy normalny |
+| Inne | ✅ Dowolny | Konfigurowalny sensor i znak mocy |
+
+| Chemia | Status | Napięcia |
+|---|---|---|
+| LiFePO4 16S | ✅ Testowane | pełne=55.0V, puste=48.2V |
+| LiFePO4 15S | ✅ Obsługiwane | pełne=51.5V, puste=45.0V |
+| NMC 14S | ✅ Obsługiwane | pełne=58.8V, puste=42.0V |
+| Lead-acid | ✅ Obsługiwane | pełne=54.0V, puste=46.0V |
+
+### Architektura systemu
+
+```
+[Bateria 1] ──DC──┐
+                   ├──► Falownik (magistrala DC)
+[Bateria 2] ──DC──┘
+     │
+     └── opcjonalnie: BMS → ESP32 (YamBMS) ──CAN──► Falownik
+
+Falownik ──Modbus/SolarmanAPI──► Home Assistant
+                                      │
+                          sensor.battery_fusion_soc
+                          sensor.battery_fusion_power_normalized
+                          sensor.battery_fusion_status
+```
+
+### Instalacja
+
+#### Krok 1 — Skopiuj pliki do `/config`
+
+```
+battery-fusion-ha/
+├── configuration_example.yaml  → dodaj do configuration.yaml
+├── templates.yaml               → dodaj do templates.yaml
+└── automations.yaml             → dodaj do automations.yaml
+```
+
+#### Krok 2 — Skonfiguruj przez UI
+
+Po restarcie HA przejdź do **Ustawienia → Automatyzacje → Helpery** i ustaw:
+
+| Helper | Co wpisać |
+|---|---|
+| `bf_battery_1_capacity_kwh` | Pojemność Twojej baterii 1 w kWh |
+| `bf_battery_2_capacity_kwh` | Pojemność baterii 2 (lub 0 jeśli masz jedną) |
+| `bf_battery_energy_kwh` | Aktualna energia — skalibruj raz ręcznie |
+| `bf_voltage_full` | Napięcie przy pełnym naładowaniu (patrz tabela chemii) |
+| `bf_voltage_empty` | Napięcie przy rozładowaniu (patrz tabela chemii) |
+| `bf_power_sensor` | entity_id sensora mocy Twojego falownika |
+| `bf_voltage_sensor` | entity_id sensora napięcia baterii |
+| `bf_current_sensor` | entity_id sensora prądu baterii |
+| `bf_power_sign_inverted` | ON jeśli Twój falownik ma odwrócony znak mocy |
+
+#### Krok 3 — Kalibracja ręczna (jednorazowo)
+
+Oblicz aktualną energię i ustaw `input_number.bf_battery_energy_kwh`:
+
+```
+Energia = Bat1_SoC% × Bat1_kWh + Bat2_SoC% × Bat2_kWh
+
+Przykład: Bat1=60% × 12.5kWh + Bat2=55% × 17.0kWh
+        = 7.5 + 9.35 = 16.85 kWh
+```
+
+### Sensory po instalacji
+
+| Sensor | Opis |
+|---|---|
+| `sensor.battery_fusion_soc` | Łączny SoC w % |
+| `sensor.battery_fusion_power_normalized` | Moc (+ rozładowanie, - ładowanie) |
+| `sensor.battery_fusion_status` | Stan: charging / discharging / idle / low_soc |
+
+### Znak mocy — jak sprawdzić?
+
+W historii HA obserwuj `bf_power_sensor` podczas ładowania z PV:
+- jeśli wartość jest **ujemna** → zostawia `bf_power_sign_inverted = OFF` (Deye, Growatt)
+- jeśli wartość jest **dodatnia** → ustaw `bf_power_sign_inverted = ON` (Sofar)
+
+### Kalibracja automatyczna
+
+System automatycznie kalibruje licznik przy punktach granicznych napięcia:
+
+| Warunek | Czas | Akcja |
+|---|---|---|
+| Napięcie > `bf_voltage_full` i moc < 200W | 5 minut | Reset do 100% pojemności |
+| Napięcie < `bf_voltage_empty` | 3 minuty | Reset do 2% pojemności |
+
+### Kalibracja ręczna
+
+Gdy licznik dryfuje (po kilku dniach):
+
+1. Odczytaj % z każdego BMS
+2. Oblicz: `SoC_bat1 × kWh_bat1 + SoC_bat2 × kWh_bat2`
+3. Ustaw w HA: `input_number.bf_battery_energy_kwh = wynik`
+
+### Uwaga: Per-battery SoC
+
+`battery_1_soc_est` i `battery_2_soc_est` to **estymacje proporcjonalne**.  
+W rzeczywistości baterie nie rozładowują się proporcjonalnie (różne rezystancje wewnętrzne, BMS).  
+Używaj globalnego SoC jako głównej metryki.
+
+### Plan docelowy (YamBMS)
+
+```
+[JK BMS] ──UART TTL──► ESP32 (YamBMS) ──CAN Pylontech──► Falownik
+                              │
+                              └──WiFi──► HA (ESPHome + Bluetooth Proxy)
+```
+
+> ⚠️ **Dla JK BMS:** podłącz przez **UART TTL** (TX/RX/GND), nie RS485.  
+> Baterie z zamkniętym protokołem RS485 (np. Felicity) — zostaw tylko na magistrali DC.
+
+Po wdrożeniu YamBMS:
+- Falownik dostaje prawdziwy SoC przez CAN
+- Dokładność wzrośnie do **±2%**
+- Coulomb Counter staje się sensorem weryfikującym
+
+---
+
+## 🇬🇧 English
+
+### What is this?
+
+**Battery Fusion** is a universal Home Assistant integration for **accurate monitoring and management of energy storage systems** connected to any inverter.
+
+No hardcoded values — everything is configured through the HA interface.
+
+### Supported inverters & chemistries
+
+**Inverters**: Deye, Sofar, Growatt, Victron, Solis, and any inverter with a HA sensor for battery power.
+
+**Chemistries**: LiFePO4, NMC, Lead-acid, and any other with configurable voltage thresholds.
+
+### Installation
+
+#### Step 1 — Copy files to `/config`
+
+```
+battery-fusion-ha/
+├── configuration_example.yaml  → add to configuration.yaml
+├── templates.yaml               → add to templates.yaml
+└── automations.yaml             → add to automations.yaml
+```
+
+#### Step 2 — Configure via UI
+
+After restarting HA, go to **Settings → Automations → Helpers** and set:
+
+| Helper | What to enter |
+|---|---|
+| `bf_battery_1_capacity_kwh` | Your battery 1 capacity in kWh |
+| `bf_battery_2_capacity_kwh` | Battery 2 capacity (or 0 for single battery) |
+| `bf_battery_energy_kwh` | Current energy — calibrate once manually |
+| `bf_voltage_full` | Voltage at full charge (see chemistry table) |
+| `bf_voltage_empty` | Voltage at empty (see chemistry table) |
+| `bf_power_sensor` | entity_id of your inverter's battery power sensor |
+| `bf_voltage_sensor` | entity_id of battery voltage sensor |
+| `bf_current_sensor` | entity_id of battery current sensor |
+| `bf_power_sign_inverted` | ON if your inverter uses inverted power sign |
+
+#### Step 3 — Initial calibration
+
+Calculate current energy and set `input_number.bf_battery_energy_kwh`:
+
+```
+Energy = Bat1_SoC% × Bat1_kWh + Bat2_SoC% × Bat2_kWh
+```
+
+### Voltage reference table
+
+| Chemistry | Cells | Full (100%) | Empty (0%) |
+|---|---|---|---|
+| LiFePO4 | 16S | 55.0V | 48.2V |
+| LiFePO4 | 15S | 51.5V | 45.0V |
+| NMC | 14S | 58.8V | 42.0V |
+| Lead-acid | — | 54.0V | 46.0V |
+
+### Power sign convention
+
+Check your inverter's power sensor during PV charging:
+- **Negative during charging** → leave `bf_power_sign_inverted = OFF` (Deye, Growatt, Solis)
+- **Positive during charging** → set `bf_power_sign_inverted = ON` (Sofar)
+
+### Available sensors
+
+| Sensor | Description |
+|---|---|
+| `sensor.battery_fusion_soc` | Combined SoC in % |
+| `sensor.battery_fusion_power_normalized` | Power (+ discharge, - charge) |
+| `sensor.battery_fusion_status` | State: charging / discharging / idle / low_soc |
+
+### Per-battery SoC disclaimer
+
+`battery_1_soc_est` and `battery_2_soc_est` are **proportional estimates**, not real BMS readings.  
+Batteries do not discharge proportionally in practice. Use global SoC as the primary metric.
+
+---
+
+## Roadmap
+
+- [x] Universal Coulomb Counter (any inverter, any chemistry)
+- [x] Configurable power sign (normal / inverted)
+- [x] Configurable sensor entity IDs
+- [x] Auto-calibration at voltage boundaries
+- [x] Overload alert (one battery disconnect scenario)
+- [x] Low SoC warning
+- [x] Multi-battery support (1, 2, 3+)
+- [ ] Dashboard card (Lovelace)
+- [ ] HACS integration
+- [ ] ESPHome YamBMS integration guide
+- [ ] EMHASS optimization layer
+
+---
+
+## Changelog
+
+### v2.0 — Universal release
+- Removed all hardcoded values (capacity, voltage, sensor names)
+- Added configurable power sign (inverted / normal)
+- Added configurable sensor entity IDs via input_text
+- Added multi-battery support with input_select
+- Auto-calibration thresholds configurable via input_number
+- Added `sensor.battery_fusion_power_normalized`
+- Added `sensor.battery_fusion_status`
+
+### v1.1 — Expert review fixes
+- Auto-calibration at 100% and ~0% voltage boundaries
+- JK BMS overload protection alert
+- Low SoC warning automation
+- Per-battery estimation disclaimer
+- Charging efficiency (0.97) in documentation
+
+### v1.0 — Initial release (Deye + Felicity + JK BMS)
+- Coulomb Counter sensor
+- Dual battery energy tracking
+- PV BRAIN integration
+
+---
+
+## Credits
+
+- [YamBMS](https://github.com/Sleeper85/esphome-yambms) — multi-BMS aggregation for ESPHome
+- [esphome-deye-inverter](https://github.com/Lewa-Reka/esphome-deye-inverter) — Deye integration (PL community)
+- [Batmon-HA](https://github.com/fl4p/batmon-ha) — BMS Bluetooth monitoring
+
+---
+
+## License
+
+MIT — use freely, share improvements.
