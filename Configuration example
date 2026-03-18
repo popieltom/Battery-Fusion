@@ -1,0 +1,184 @@
+# =============================================================
+# BATTERY FUSION — Konfiguracja uniwersalna
+# Wersja: 2.0
+#
+# Krok 1: Skopiuj ten plik do configuration.yaml
+# Krok 2: Wypełnij wartości zgodnie z Twoim systemem
+# Krok 3: Dodaj templates.yaml i automations.yaml
+# =============================================================
+
+input_number:
+
+  # -----------------------------------------------------------
+  # POJEMNOŚCI BATERII
+  # -----------------------------------------------------------
+  bf_battery_1_capacity_kwh:
+    name: "BF: Pojemność baterii 1 (kWh)"
+    min: 0.1
+    max: 200
+    step: 0.1
+    unit_of_measurement: kWh
+    icon: mdi:battery
+
+  bf_battery_2_capacity_kwh:
+    name: "BF: Pojemność baterii 2 (kWh)"
+    min: 0          # ustaw 0 jeśli masz tylko jedną baterię
+    max: 200
+    step: 0.1
+    unit_of_measurement: kWh
+    icon: mdi:battery
+
+  # Energia aktualnie w bateriach (licznik Coulomba)
+  bf_battery_energy_kwh:
+    name: "BF: Energia w bateriach (kWh)"
+    min: 0
+    max: 500
+    step: 0.001
+    unit_of_measurement: kWh
+    icon: mdi:battery-charging
+
+  # -----------------------------------------------------------
+  # NAPIĘCIA KALIBRACYJNE — dostosuj do chemii baterii
+  #
+  # Typowe wartości:
+  #   LiFePO4 16S:  pełne=55.0V  puste=48.2V
+  #   LiFePO4 15S:  pełne=51.5V  puste=45.0V
+  #   NMC 14S:      pełne=58.8V  puste=42.0V
+  #   Lead-acid:    pełne=54.0V  puste=46.0V
+  # -----------------------------------------------------------
+  bf_voltage_full:
+    name: "BF: Napięcie przy 100% (V)"
+    min: 10
+    max: 100
+    step: 0.1
+    unit_of_measurement: V
+    icon: mdi:lightning-bolt
+    initial: 55.0
+
+  bf_voltage_empty:
+    name: "BF: Napięcie przy 0% (V)"
+    min: 10
+    max: 100
+    step: 0.1
+    unit_of_measurement: V
+    icon: mdi:lightning-bolt-outline
+    initial: 48.2
+
+  # -----------------------------------------------------------
+  # PARAMETRY LICZNIKA
+  # -----------------------------------------------------------
+  bf_charge_efficiency:
+    name: "BF: Sprawność ładowania (%)"
+    min: 80
+    max: 100
+    step: 0.5
+    unit_of_measurement: "%"
+    icon: mdi:percent
+    initial: 97
+
+  bf_overload_current_threshold:
+    name: "BF: Próg prądu przeciążenia (A)"
+    min: 10
+    max: 500
+    step: 5
+    unit_of_measurement: A
+    icon: mdi:current-ac
+    initial: 120
+
+  bf_low_soc_threshold:
+    name: "BF: Próg niskiego SoC (%)"
+    min: 5
+    max: 30
+    step: 1
+    unit_of_measurement: "%"
+    icon: mdi:battery-alert
+    initial: 15
+
+
+input_text:
+
+  # -----------------------------------------------------------
+  # NAZWY ENCJI FALOWNIKA
+  # Wpisz dokładne entity_id z Twojego HA
+  #
+  # Przykłady:
+  #   Deye/Solarman:  sensor.inverter_battery_power
+  #   Sofar:          sensor.sofar_battery_power
+  #   Victron:        sensor.battery_power
+  #   Growatt:        sensor.growatt_battery_power
+  # -----------------------------------------------------------
+  bf_power_sensor:
+    name: "BF: Sensor mocy baterii (entity_id)"
+    initial: "sensor.inverter_battery_power"
+    max: 100
+
+  bf_voltage_sensor:
+    name: "BF: Sensor napięcia baterii (entity_id)"
+    initial: "sensor.inverter_battery_voltage"
+    max: 100
+
+  bf_current_sensor:
+    name: "BF: Sensor prądu baterii (entity_id)"
+    initial: "sensor.inverter_battery_current"
+    max: 100
+
+  bf_battery_1_name:
+    name: "BF: Nazwa baterii 1"
+    initial: "Bateria 1"
+    max: 50
+
+  bf_battery_2_name:
+    name: "BF: Nazwa baterii 2"
+    initial: "Bateria 2"
+    max: 50
+
+
+input_boolean:
+
+  # -----------------------------------------------------------
+  # ZNAK MOCY — kluczowa różnica między falownikami!
+  #
+  #   OFF (domyślnie):
+  #     wartość DODATNIA = rozładowanie  (Deye, Growatt, Solis)
+  #     wartość UJEMNA   = ładowanie
+  #
+  #   ON:
+  #     wartość UJEMNA   = rozładowanie  (Sofar, niektóre Victron)
+  #     wartość DODATNIA = ładowanie
+  # -----------------------------------------------------------
+  bf_power_sign_inverted:
+    name: "BF: Odwrócony znak mocy"
+    icon: mdi:swap-vertical
+
+  # Włącz aby wyłączyć alert przeciążenia (np. gdy masz tylko 1 baterię)
+  bf_disable_overload_alert:
+    name: "BF: Wyłącz alert przeciążenia"
+    icon: mdi:bell-off
+
+
+input_select:
+
+  # -----------------------------------------------------------
+  # LICZBA BATERII
+  # -----------------------------------------------------------
+  bf_battery_count:
+    name: "BF: Liczba baterii"
+    options:
+      - "1"
+      - "2"
+      - "3+"
+    initial: "2"
+    icon: mdi:battery-multiple
+
+  # -----------------------------------------------------------
+  # CHEMIA BATERII — dla informacji w raporcie
+  # -----------------------------------------------------------
+  bf_battery_chemistry:
+    name: "BF: Chemia baterii"
+    options:
+      - LiFePO4
+      - NMC
+      - Lead-acid
+      - Other
+    initial: LiFePO4
+    icon: mdi:atom
