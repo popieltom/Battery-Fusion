@@ -1,31 +1,71 @@
 # 🔋 Battery Fusion
 
-> Control ANY battery system in Home Assistant — even mixed batteries (DIY + commercial).
+**Combine different battery systems into one smart energy model in Home Assistant.**
+
+Battery Fusion lets you connect multiple batteries (even from different manufacturers or DIY builds) into a single logical system — without requiring expensive external controllers.
 
 ---
 
-## ❌ Problem
+## 🚧 The real problem
 
-- Inverter shows inaccurate SOC (±15–20%)
-- Can't handle mixed or multiple batteries
-- No smart energy management without expensive hardware
+If you have (or want):
+- two different batteries,
+- a DIY battery + commercial ESS,
+- different BMS systems,
+- or an inverter that doesn't "understand" your setup...
 
-## ✅ Solution
+You are usually told:
 
-Battery Fusion creates a **virtual battery system** in Home Assistant — combining multiple batteries into one accurate SOC model using **Coulomb Counting**.
+> "You need additional hardware (EMS / controller / CAN bridge)."
 
-No inverter support required. Works with ANY inverter.
-
-## 🔥 Key Features
-
-- Works with **mixed battery systems** (DIY + commercial ESS)
-- **Adaptive learning** — self-correcting SOC drift over time
-- Universal: any inverter, any chemistry, 1–3+ batteries
-- No hardcoded values — everything configured via HA interface
+That often means more cost, more complexity, and more points of failure.
 
 ---
 
-## ⚡ Quick Start (2 min)
+## 💡 The idea behind Battery Fusion
+
+Instead of adding hardware, Battery Fusion uses **Home Assistant as the intelligence layer**.
+
+It builds a **virtual combined battery system** that:
+- merges multiple batteries into one logical model,
+- calculates a shared SOC,
+- provides one data layer for automation,
+- reduces the need for manual corrections.
+
+---
+
+## 🔥 What you actually get
+
+- One **combined battery SOC** instead of two conflicting values
+- One **logic layer** for automation (charging / discharging decisions)
+- Support for **mixed systems (DIY + commercial)**
+- No dependency on a single inverter ecosystem
+- No need for expensive EMS in many setups
+
+---
+
+## ⚠️ What this is NOT
+
+Battery Fusion does NOT replace:
+- BMS safety systems
+- inverter protections
+- proper electrical design
+
+It is a **software coordination layer**, not a safety controller.
+
+---
+
+## 👤 Who this is for
+
+This project is ideal if you:
+- use Home Assistant,
+- have (or plan) multiple battery systems,
+- want to avoid buying additional control hardware,
+- want better visibility and control over your energy.
+
+---
+
+## ⚡ Quick start
 
 1. Copy files to `/config/packages/`
 2. Add to `configuration.yaml`:
@@ -34,216 +74,56 @@ No inverter support required. Works with ANY inverter.
 homeassistant:
   packages:
     battery_fusion: !include_dir_named packages
-```
 
-3. Restart Home Assistant
-4. Go to **Settings → Helpers** and set battery capacity + power sensor entity
+Restart Home Assistant
 
-✅ Done — system is running.
+Go to Settings → Helpers and configure batteries and sensors
 
----
+🧠 How it works (simple version)
 
-## 🔌 Supported Systems
+Battery Fusion:
 
-### Inverters
+tracks energy flow,
 
-| Inverter | Status | Notes |
-|---|---|---|
-| Deye / Solarman | ✅ Tested | Normal sign (+ = discharge) |
-| Sofar | ✅ Supported | Enable `bf_power_sign_inverted` |
-| Growatt | ✅ Supported | Normal sign |
-| Victron | ✅ Supported | Separate power sensors |
-| Solis | ✅ Supported | Normal sign |
-| Any other | ✅ Universal | Configurable sensor + sign |
+estimates total stored energy,
 
-### Battery Chemistry
+continuously corrects SOC over time,
 
-| Chemistry | Cells | Full (100%) | Empty (0%) |
-|---|---|---|---|
-| LiFePO4 | 16S | 55.0V | 48.2V |
-| LiFePO4 | 15S | 51.5V | 45.0V |
-| NMC | 14S | 58.8V | 42.0V |
-| Lead-acid | — | 54.0V | 46.0V |
+builds a unified model of your storage system.
 
----
+🔌 Supported systems
 
-## 🏗️ Architecture
+Works with:
 
-```
-[Battery 1] ──DC──┐
-                   ├──► Inverter (DC bus)
-[Battery 2] ──DC──┘
-                   │
-                   └── optional: BMS → ESP32 (YamBMS) ──CAN──► Inverter
+most inverters (via configurable sensors)
 
-Inverter ──Modbus/WiFi──► Home Assistant
-                               │
-                   sensor.battery_fusion_soc
-                   sensor.battery_fusion_power_normalized
-                   sensor.battery_fusion_status
-                   sensor.bf_learn_statistics  ← adaptive learning
-```
+mixed battery types
 
----
+1, 2 or more batteries
 
-## ⚙️ Configuration
-
-After restart, go to **Settings → Helpers** and configure:
-
-| Helper | What to set |
-|---|---|
-| `bf_battery_1_capacity_kwh` | Battery 1 capacity in kWh |
-| `bf_battery_2_capacity_kwh` | Battery 2 capacity (0 = single battery) |
-| `bf_battery_energy_kwh` | Current energy — calibrate once manually |
-| `bf_voltage_full` | Voltage at full charge (see table above) |
-| `bf_voltage_empty` | Voltage at empty (see table above) |
-| `bf_power_sensor` | entity_id of inverter battery power sensor |
-| `bf_voltage_sensor` | entity_id of battery voltage sensor |
-| `bf_current_sensor` | entity_id of battery current sensor |
-| `bf_power_sign_inverted` | ON if inverter uses inverted power sign |
-
-### Power sign convention
-
-Check your inverter's power sensor during PV charging:
-- **Negative during charging** → leave `bf_power_sign_inverted = OFF` (Deye, Growatt, Solis)
-- **Positive during charging** → set `bf_power_sign_inverted = ON` (Sofar)
-
-### Initial calibration
-
-Calculate current energy and set `input_number.bf_battery_energy_kwh`:
-
-```
-Energy = Bat1_SoC% × Bat1_kWh + Bat2_SoC% × Bat2_kWh
-
-Example: Bat1=60% × 12.5kWh + Bat2=55% × 16.0kWh
-       = 7.5 + 8.8 = 16.3 kWh
-```
-
----
-
-## 🧠 Adaptive Learning Module
-
-Battery Fusion includes a self-learning SOC correction system that **eliminates daily manual calibration** over time.
-
-### How it works
-
-```
-Every minute:   Coulomb Counter × learned_efficiency
-Every 10 min:   OCV correction when battery at rest (power < 50W for 10+ min)
-On calibration: EMA learning — 70% old + 30% new observation
-```
-
-After 3–7 manual calibrations, the system stabilizes and drift drops below 1%.
-
-### Learning sensors
-
-| Sensor | Description |
-|---|---|
-| `sensor.bf_learn_statistics` | Learning status: `brak danych` / `uczenie (N/3)` / `stabilny` |
-| `sensor.bf_learn_soc_ocv` | SOC estimated from OCV voltage curve |
-| `sensor.bf_learn_drift_vs_ocv` | Current drift: Coulomb counter vs OCV |
-
-### Learning helpers (auto-updated)
-
-| Helper | Description |
-|---|---|
-| `input_number.bf_learned_efficiency` | Learned charging efficiency (starts at 0.97) |
-| `input_number.bf_calibration_count` | Number of completed calibrations |
-| `input_number.bf_avg_drift_before_correction` | Average drift before correction |
-
-> ⚠️ **Per-battery SoC disclaimer:** `battery_1_soc_est` and `battery_2_soc_est` are **proportional estimates**, not real BMS readings. Use global SoC as the primary metric.
-
----
-
-## 📊 Available Sensors
-
-| Sensor | Description |
-|---|---|
-| `sensor.battery_fusion_soc` | Combined SOC in % |
-| `sensor.battery_fusion_power_normalized` | Power (+ discharge, − charge) |
-| `sensor.battery_fusion_status` | State: charging / discharging / idle / low_soc |
-| `sensor.bf_learn_statistics` | Learning module status |
-| `sensor.bf_learn_soc_ocv` | OCV-based SOC estimate |
-| `sensor.bf_learn_drift_vs_ocv` | SOC drift vs OCV |
-
----
-
-## 📁 File Structure
-
-```
+📁 Project structure
 packages/
-├── bf_configuration.yaml    ← helpers (input_number, input_boolean, input_text, input_select)
-├── bf_templates.yaml        ← template sensors
-├── bf_automations.yaml      ← core automations (Coulomb counter, calibration, alerts)
-└── bf_learning.yaml         ← adaptive learning module
-```
+├── bf_configuration.yaml
+├── bf_templates.yaml
+├── bf_automations.yaml
+└── bf_learning.yaml
 
----
+Additional docs:
 
-## 🔮 Roadmap
+docs/
+├── WHY_IT_EXISTS.md
+├── USE_CASES.md
+└── DISCLAIMER.md
+🚀 Roadmap
 
-- [x] Universal Coulomb Counter (any inverter, any chemistry)
-- [x] Configurable power sign (normal / inverted)
-- [x] Configurable sensor entity IDs
-- [x] Auto-calibration at voltage boundaries
-- [x] Overload alert (battery disconnect scenario)
-- [x] Low SOC warning
-- [x] Multi-battery support (1, 2, 3+)
-- [x] Adaptive efficiency learning (v2.1)
-- [x] OCV-based SOC correction (v2.1)
-- [ ] Dashboard card (Lovelace)
-- [ ] HACS integration
-- [ ] ESPHome YamBMS integration guide
-- [ ] EMHASS optimization layer
+Dashboard (Lovelace)
 
----
+HACS integration
 
-## 📋 Changelog
+Plug & play configuration
 
-### v2.1 — Adaptive Learning
-- Self-learning SOC correction (EMA algorithm)
-- OCV correction when battery at rest
-- Learning quality sensor (`bf_learn_statistics`)
-- Trigger on `button.battery_pack_apply_initial_soc` for accurate calibration detection
+Advanced optimization layer
 
-### v2.0 — Universal release
-- Removed all hardcoded values
-- Configurable power sign (inverted / normal)
-- Configurable sensor entity IDs
-- Multi-battery support
-- Auto-calibration at voltage boundaries
-- `sensor.battery_fusion_power_normalized`
-- `sensor.battery_fusion_status`
+📜 License
 
-### v1.1 — Expert review fixes
-- Auto-calibration at 100% and ~0%
-- JK BMS overload protection alert
-- Low SOC warning
-- Per-battery estimation disclaimer
-- Charging efficiency 0.97
-
-### v1.0 — Initial release
-- Coulomb Counter sensor
-- Dual battery energy tracking
-
----
-
-## 🇵🇱 Polski
-
-**Battery Fusion** to integracja dla Home Assistant, która pozwala na precyzyjne monitorowanie i zarządzanie magazynami energii podłączonymi do dowolnego falownika.
-
-System liczy energię metodą **Coulomb Counting** (±5% dokładności), a moduł **adaptacyjnego uczenia** automatycznie eliminuje dryf licznika na podstawie ręcznych kalibracji — po 7 kalibracjach system stabilizuje się i codzienne korekty stają się zbędne.
-
----
-
-## Credits
-
-- [YamBMS](https://github.com/Sleeper85/esphome-yambms) — multi-BMS aggregation for ESPHome
-- [esphome-deye-inverter](https://github.com/Lewa-Reka/esphome-deye-inverter) — Deye integration (PL community)
-- [Batmon-HA](https://github.com/fl4p/batmon-ha) — BMS Bluetooth monitoring
-
----
-
-## License
-
-MIT — use freely, share improvements.
+MIT — use freely, improve, share.
