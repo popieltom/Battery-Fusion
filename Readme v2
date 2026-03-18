@@ -1,6 +1,6 @@
 Control ANY battery system in Home Assistant — even mixed batteries (DIY + commercial).
 Steruj KAŻDYM systemem akumulatorowym w Home Assistant — nawet w przypadku zestawów mieszanych (akumulatory własnej produkcji i dostępne w sprzedaży).
-
+![Dashboard](docs/dashboard.png)
 ❌ Problem:
 - inverter shows wrong SOC
 - can't handle multiple batteries
