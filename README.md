@@ -1,3 +1,22 @@
+## ⚡ Quick Start (2 minuty)
+
+1. Skopiuj pliki do Home Assistant (`/config`)
+2. Dodaj do `configuration.yaml`:
+
+homeassistant:
+  packages: !include_dir_named packages
+
+3. Restart HA
+
+4. Ustaw:
+- `battery_total_capacity_kwh`
+- sensor mocy baterii
+
+✅ Gotowe — system działa
+
+
+
+
 # 🔋 Battery Fusion — Home Assistant
 
 > Inteligentne zarządzanie dwoma równoległymi magazynami energii LiFePO4 w Home Assistant z Coulomb Counting i YamBMS.
@@ -13,16 +32,18 @@
 Problem: falownik widzi obie baterie jako jedną, ale nie zna prawdziwego łącznego SoC.  
 Rozwiązanie: HA liczy energię metodą Coulomb Counting i zarządza systemem na podstawie rzeczywistych danych.
 
-### Moja konfiguracja
+### Przykładowa konfiguracja
 
-| Komponent | Model | Parametry |
-|---|---|---|
-| Falownik | Deye SUN-8K-SG04LP3-EU | 8 kW, 3-fazowy LV |
-| Bateria 1 | Felicity ESS LUX-E-48250LG03 | 12.5 kWh · 250 Ah · 51.2V |
-| Bateria 2 | JK BMS V19 (330 Ah) | 17 kWh · 330 Ah · 51.2V |
-| Łącznie | — | **29.5 kWh** |
-| PV | — | 7 kW (panele zachód + wschód) |
-| ESP32 | WaveShare ESP32-S3-RS485-CAN | YamBMS (wkrótce) |
+Battery Fusion działa z:
+- Deye
+- Victron
+- Sofar
+- Growatt
+
+oraz dowolnymi bateriami:
+- LiFePO4
+- DIY (JK BMS)
+- gotowe magazyny
 
 ### Jak działa?
 
