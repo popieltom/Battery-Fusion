@@ -1,149 +1,231 @@
 # =============================================================
-# BATTERY FUSION — Adaptive Learning Automations
-# Wersja: 1.0
+# BATTERY FUSION — Automatyzacje (uniwersalne)
+# Wersja: 2.0
 #
-# Automatyzacje adaptacyjnego uczenia SoC.
-# System uczy się na podstawie ręcznie wpisywanych wartości rzeczywistego SoC.
-#
-# JAK UŻYWAĆ:
-# 1. Włącz bf_learning_enabled
-# 2. Odczytaj prawdziwy SoC z BMS (np. JK BMS wyświetlacz)
-# 3. Wpisz wartość w input_number.bf_real_soc_input
-# 4. System automatycznie skoryguje licznik
-#
-# KIEDY WPISYWAĆ:
-# - Najlepiej gdy bateria ~100% lub ~10-20% (wtedy BMS jest najbardziej dokładny)
-# - NIE wpisuj w środku cyklu (30-70%) - BMS bywa tam mniej dokładny
+# Wszystkie progi i nazwy encji czytane z konfiguracji.
+# Nie ma hardkodowanych wartości — działa z każdym falownikiem.
 # =============================================================
 
 automation:
 
   # -----------------------------------------------------------
-    # 1. ADAPTACYJNE UCZENIE — wyzwalane ręcznym wpisem SoC
-      # -----------------------------------------------------------
-        - alias: "🧠 Battery Fusion: Adaptive Learning (manual trigger)"
-            id: battery_fusion_adaptive_learning
-                description: >
-                      Uczy się korekcji SoC gdy użytkownik wpisze prawdziwy SoC z BMS.
-                            Używa algorytmu EMA (Exponential Moving Average) do stabilnego uczenia.
-                                trigger:
-                                      - platform: state
-                                              entity_id: input_number.bf_real_soc_input
-                                                  condition:
-                                                        - condition: state
-                                                                entity_id: input_boolean.bf_learning_enabled
-                                                                        state: "on"
-                                                                              - condition: template
-                                                                                      value_template: >
-                                                                                                {{ states('input_number.bf_real_soc_input') not in ['unknown', 'unavailable', '0'] }}
-                                                                                                      - condition: template
-                                                                                                              value_template: >
-                                                                                                                        {{ states('input_number.bf_real_soc_input') | float(0) > 0 }}
-                                                                                                                            action:
-                                                                                                                                  - variables:
-                                                                                                                                            real_soc: "{{ states('input_number.bf_real_soc_input') | float(0) }}"
-                                                                                                                                                      bf_soc: "{{ states('sensor.battery_fusion_soc') | float(0) }}"
-                                                                                                                                                                error: "{{ real_soc - bf_soc }}"
-                                                                                                                                                                          rate: "{{ states('input_number.bf_learning_rate') | float(0.1) }}"
-                                                                                                                                                                                    current_corr: "{{ states('input_number.bf_soc_correction') | float(0) }}"
-                                                                                                                                                                                              new_corr: "{{ current_corr + (error * rate) }}"
-                                                                                                                                                                                                        samples: "{{ states('input_number.bf_learning_samples') | int(0) + 1 }}"
-                                                                                                                                                                                                                  cum_error: "{{ states('input_number.bf_cumulative_error') | float(0) + error }}"
-                                                                                                                                                                                                                        # Aktualizuj korekcję
-                                                                                                                                                                                                                              - service: input_number.set_value
-                                                                                                                                                                                                                                      target:
-                                                                                                                                                                                                                                                entity_id: input_number.bf_soc_correction
-                                                                                                                                                                                                                                                        data:
-                                                                                                                                                                                                                                                                  value: "{{ new_corr | round(2) }}"
-                                                                                                                                                                                                                                                                        # Inkrementuj licznik próbek
-                                                                                                                                                                                                                                                                              - service: input_number.set_value
-                                                                                                                                                                                                                                                                                      target:
-                                                                                                                                                                                                                                                                                                entity_id: input_number.bf_learning_samples
-                                                                                                                                                                                                                                                                                                        data:
-                                                                                                                                                                                                                                                                                                                  value: "{{ samples }}"
-                                                                                                                                                                                                                                                                                                                        # Aktualizuj skumulowany błąd
-                                                                                                                                                                                                                                                                                                                              - service: input_number.set_value
-                                                                                                                                                                                                                                                                                                                                      target:
-                                                                                                                                                                                                                                                                                                                                                entity_id: input_number.bf_cumulative_error
-                                                                                                                                                                                                                                                                                                                                                        data:
-                                                                                                                                                                                                                                                                                                                                                                  value: "{{ cum_error | round(2) }}"
-                                                                                                                                                                                                                                                                                                                                                                        # Powiadomienie z wynikiem
-                                                                                                                                                                                                                                                                                                                                                                              - service: persistent_notification.create
-                                                                                                                                                                                                                                                                                                                                                                                      data:
-                                                                                                                                                                                                                                                                                                                                                                                                title: "🧠 Battery Fusion — Uczenie"
-                                                                                                                                                                                                                                                                                                                                                                                                          message: >
-                                                                                                                                                                                                                                                                                                                                                                                                                      Nowa próbka #{{"#{samples}"}}: 
-                                                                                                                                                                                                                                                                                                                                                                                                                                  Prawdziwy SoC: {{ real_soc | round(1) }}%
-                                                                                                                                                                                                                                                                                                                                                                                                                                              BF SoC przed: {{ bf_soc | round(1) }}%
-                                                                                                                                                                                                                                                                                                                                                                                                                                                          Błąd: {{ error | round(2) }}%
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                      Nowa korekcja: {{ new_corr | round(2) }}%
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  Próbki łącznie: {{ samples }}
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      mode: single
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        # -----------------------------------------------------------
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          # 2. ADAPTACYJNA SPRAWNOŚĆ ŁADOWANIA
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            # -----------------------------------------------------------
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              - alias: "🧠 Battery Fusion: Adaptive Efficiency Learning"
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  id: battery_fusion_efficiency_learning
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      description: >
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            Uczy się rzeczywistej sprawności ładowania na podstawie pełnych cykli.
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  Uruchamia się gdy bateria osiągnie 100% (po kalibracji).
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      trigger:
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            - platform: state
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    entity_id: input_number.bf_battery_energy_kwh
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        condition:
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              - condition: state
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      entity_id: input_boolean.bf_learning_enabled
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              state: "on"
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    - condition: template
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            value_template: >
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      {% set energy = states('input_number.bf_battery_energy_kwh') | float(0) %}
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                {% set cap = states('input_number.bf_battery_1_capacity_kwh') | float(0) + states('input_number.bf_battery_2_capacity_kwh') | float(0) %}
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          {{ energy >= cap * 0.99 }}
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              action:
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    - variables:
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              current_eff: "{{ states('input_number.bf_adaptive_efficiency') | float(97) }}"
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        # EMA z wagą 0.7/0.3 — stabilne uczenie
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  new_eff: "{{ (current_eff * 0.7 + 97.0 * 0.3) | round(1) }}"
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        - service: input_number.set_value
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                target:
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          entity_id: input_number.bf_adaptive_efficiency
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  data:
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            value: "{{ new_eff }}"
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                mode: single
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  # -----------------------------------------------------------
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    # 3. RESET SYSTEMU UCZĄCEGO
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      # -----------------------------------------------------------
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        - alias: "🔄 Battery Fusion: Reset Learning"
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            id: battery_fusion_reset_learning
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                description: >
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      Resetuje system uczący do wartości domyślnych.
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            Wyzwól ręcznie przez Developer Tools → Usługi.
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                trigger: []
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    action:
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          - service: input_number.set_value
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  target:
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            entity_id: input_number.bf_soc_correction
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    data:
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              value: 0
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    - service: input_number.set_value
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            target:
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      entity_id: input_number.bf_learning_samples
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              data:
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        value: 0
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              - service: input_number.set_value
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      target:
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                entity_id: input_number.bf_cumulative_error
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        data:
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  value: 0
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        - service: input_number.set_value
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                target:
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          entity_id: input_number.bf_adaptive_efficiency
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  data:
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            value: 97.0
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  - service: persistent_notification.create
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          data:
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    title: "🔄 Battery Fusion — Reset uczenia"
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              message: "System uczący zresetowany do wartości domyślnych."
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  mode: single
+  # 1. COULOMB COUNTER — aktualizacja co 1 minutę
+  # -----------------------------------------------------------
+  - alias: "🔋 Battery Fusion: Coulomb Counter (co 1 min)"
+    id: battery_fusion_coulomb_counter
+    description: >
+      Całkuje moc baterii po czasie. Sprawność ładowania pobierana
+      z input_number.bf_charge_efficiency.
+      Znak mocy automatycznie korygowany przez sensor.battery_fusion_power_normalized.
+    trigger:
+      - platform: time_pattern
+        minutes: "/1"
+    action:
+      - variables:
+          # Używamy znormalizowanego sensora mocy (+ = rozładowanie, - = ładowanie)
+          power: "{{ states('sensor.battery_fusion_power_normalized') | float(0) }}"
+          current_kwh: "{{ states('input_number.bf_battery_energy_kwh') | float(0) }}"
+          cap1: "{{ states('input_number.bf_battery_1_capacity_kwh') | float(0) }}"
+          cap2: "{{ states('input_number.bf_battery_2_capacity_kwh') | float(0) }}"
+          total_cap: "{{ states('input_number.bf_battery_1_capacity_kwh') | float(0) + states('input_number.bf_battery_2_capacity_kwh') | float(0) }}"
+          efficiency: "{{ states('input_number.bf_charge_efficiency') | float(97) / 100 }}"
+          delta_kwh: "{{ power / 1000 / 60 }}"
+          new_kwh: >
+            {% set cap = states('input_number.bf_battery_1_capacity_kwh') | float(0)
+                       + states('input_number.bf_battery_2_capacity_kwh') | float(0) %}
+            {% set eff = states('input_number.bf_charge_efficiency') | float(97) / 100 %}
+            {% set current = states('input_number.bf_battery_energy_kwh') | float(0) %}
+            {% set pwr = states('sensor.battery_fusion_power_normalized') | float(0) %}
+            {% set delta = pwr / 1000 / 60 %}
+            {% if pwr > 0 %}
+              {{ [0.0, [cap, current - delta] | min] | max }}
+            {% else %}
+              {{ [0.0, [cap, current + (delta | abs * eff)] | min] | max }}
+            {% endif %}
+      - service: input_number.set_value
+        target:
+          entity_id: input_number.bf_battery_energy_kwh
+        data:
+          value: "{{ new_kwh | round(3) }}"
+    mode: single
+
+  # -----------------------------------------------------------
+  # 2. KALIBRACJA — bateria pełna (100%)
+  # -----------------------------------------------------------
+  - alias: "🔋 Battery Fusion: Kalibracja przy pełnym naładowaniu"
+    id: battery_fusion_calibrate_full
+    description: >
+      Resetuje licznik do pełnej pojemności gdy napięcie przekracza
+      próg ustawiony w bf_voltage_full przez 5 minut.
+    trigger:
+      - platform: template
+        value_template: >
+          {% set v_sensor = states('input_text.bf_voltage_sensor') %}
+          {% set voltage = states(v_sensor) | float(0) %}
+          {% set v_full = states('input_number.bf_voltage_full') | float(55.0) %}
+          {{ voltage > v_full }}
+        for: "00:05:00"
+    condition:
+      - condition: template
+        value_template: >
+          {{ states('sensor.battery_fusion_power_normalized') | float(0) | abs < 200 }}
+    action:
+      - variables:
+          total_cap: >
+            {{ states('input_number.bf_battery_1_capacity_kwh') | float(0)
+             + states('input_number.bf_battery_2_capacity_kwh') | float(0) }}
+          v_sensor: "{{ states('input_text.bf_voltage_sensor') }}"
+      - service: input_number.set_value
+        target:
+          entity_id: input_number.bf_battery_energy_kwh
+        data:
+          value: "{{ total_cap }}"
+      - service: persistent_notification.create
+        data:
+          title: "🔋 Battery Fusion — kalibracja 100%"
+          message: >
+            Licznik skalibrowany do {{ states('input_number.bf_battery_1_capacity_kwh') | float(0)
+              + states('input_number.bf_battery_2_capacity_kwh') | float(0) }} kWh (pełne naładowanie).
+            Napięcie: {{ states(states('input_text.bf_voltage_sensor')) }} V
+    mode: single
+
+  # -----------------------------------------------------------
+  # 3. KALIBRACJA — bateria prawie pusta (0%)
+  # -----------------------------------------------------------
+  - alias: "🔋 Battery Fusion: Kalibracja przy minimalnym SoC"
+    id: battery_fusion_calibrate_empty
+    description: >
+      Ustawia licznik na ~2% pojemności gdy napięcie spada
+      poniżej progu bf_voltage_empty przez 3 minuty.
+    trigger:
+      - platform: template
+        value_template: >
+          {% set v_sensor = states('input_text.bf_voltage_sensor') %}
+          {% set voltage = states(v_sensor) | float(0) %}
+          {% set v_empty = states('input_number.bf_voltage_empty') | float(48.2) %}
+          {{ voltage > 0 and voltage < v_empty }}
+        for: "00:03:00"
+    action:
+      - variables:
+          total_cap: >
+            {{ states('input_number.bf_battery_1_capacity_kwh') | float(0)
+             + states('input_number.bf_battery_2_capacity_kwh') | float(0) }}
+          residual_kwh: >
+            {{ ((states('input_number.bf_battery_1_capacity_kwh') | float(0)
+               + states('input_number.bf_battery_2_capacity_kwh') | float(0)) * 0.02) | round(2) }}
+      - service: input_number.set_value
+        target:
+          entity_id: input_number.bf_battery_energy_kwh
+        data:
+          value: "{{ residual_kwh }}"
+      - service: persistent_notification.create
+        data:
+          title: "🔋 Battery Fusion — kalibracja 0%"
+          message: >
+            Licznik skalibrowany do {{ residual_kwh }} kWh (~2% pojemności).
+            Napięcie: {{ states(states('input_text.bf_voltage_sensor')) }} V
+    mode: single
+
+  # -----------------------------------------------------------
+  # 4. ALERT PRZECIĄŻENIA — gdy jedna bateria się odcina
+  # -----------------------------------------------------------
+  - alias: "⚠️ Battery Fusion: Alert przeciążenia"
+    id: battery_fusion_overload_alert
+    description: >
+      Wysyła powiadomienie gdy prąd przekracza próg bf_overload_current_threshold.
+      Scenariusz: jedna bateria odcięta przez BMS → cały prąd w drugiej.
+    trigger:
+      - platform: template
+        value_template: >
+          {% set i_sensor = states('input_text.bf_current_sensor') %}
+          {% set current = states(i_sensor) | float(0) | abs %}
+          {% set threshold = states('input_number.bf_overload_current_threshold') | float(120) %}
+          {{ current > threshold }}
+        for: "00:00:30"
+    condition:
+      - condition: state
+        entity_id: input_boolean.bf_disable_overload_alert
+        state: "off"
+      - condition: template
+        value_template: >
+          {{ states('sensor.battery_fusion_power_normalized') | float(0) > 2000 }}
+    action:
+      - service: persistent_notification.create
+        data:
+          title: "⚠️ Battery Fusion: Przeciążenie!"
+          message: >
+            Prąd: {{ states(states('input_text.bf_current_sensor')) | float(0) | abs | round(1) }} A
+            (próg: {{ states('input_number.bf_overload_current_threshold') | float(0) | round(0) }} A)
+            Moc: {{ states('sensor.battery_fusion_power_normalized') | float(0) | round(0) }} W
+            SoC: {{ states('sensor.battery_fusion_soc') }}%
+
+            Możliwe odcięcie jednej baterii przez BMS!
+            Sprawdź fizycznie stan baterii.
+    mode: single
+
+  # -----------------------------------------------------------
+  # 5. OSTRZEŻENIE — niski SoC
+  # -----------------------------------------------------------
+  - alias: "🔋 Battery Fusion: Ostrzeżenie niskiego SoC"
+    id: battery_fusion_low_soc_warning
+    description: >
+      Powiadomienie gdy SoC spada poniżej progu bf_low_soc_threshold.
+    trigger:
+      - platform: template
+        value_template: >
+          {% set soc = states('sensor.battery_fusion_soc') | float(0) %}
+          {% set threshold = states('input_number.bf_low_soc_threshold') | float(15) %}
+          {{ soc < threshold and soc > 0 }}
+        for: "00:02:00"
+    action:
+      - service: persistent_notification.create
+        data:
+          title: "🔋 Battery Fusion: Niski SoC!"
+          message: >
+            SoC: {{ states('sensor.battery_fusion_soc') }}%
+            (próg: {{ states('input_number.bf_low_soc_threshold') | float(0) | round(0) }}%)
+            Energia: {{ states('input_number.bf_battery_energy_kwh') | float(0) | round(2) }} kWh
+            {% if states('input_select.bf_battery_count') != '1' %}
+            {{ states('input_text.bf_battery_1_name') }} est.: {{ state_attr('sensor.battery_fusion_soc', 'battery_1_soc_est') }}%
+            {{ states('input_text.bf_battery_2_name') }} est.: {{ state_attr('sensor.battery_fusion_soc', 'battery_2_soc_est') }}%
+            {% endif %}
+    mode: single
+
+  # -----------------------------------------------------------
+  # 6. LOG NOCNY o 00:00
+  # -----------------------------------------------------------
+  - alias: "🔋 Battery Fusion: Log nocny (00:00)"
+    id: battery_fusion_nightly_log
+    description: >
+      Co noc o 00:00 loguje stan systemu.
+      Pozwala śledzić dryf licznika Coulomba.
+    trigger:
+      - platform: time
+        at: "00:00:30"
+    action:
+      - service: persistent_notification.create
+        data:
+          title: "🔋 Battery Fusion — raport nocny"
+          message: >
+            Stan na 00:00:
+            ─────────────────────────
+            SoC: {{ states('sensor.battery_fusion_soc') }}%
+            Energia: {{ states('input_number.bf_battery_energy_kwh') | float(0) | round(2) }} kWh
+              / {{ (states('input_number.bf_battery_1_capacity_kwh') | float(0)
+                  + states('input_number.bf_battery_2_capacity_kwh') | float(0)) | round(1) }} kWh
+            Napięcie: {{ states(states('input_text.bf_voltage_sensor')) }} V
+            Chemia: {{ states('input_select.bf_battery_chemistry') }}
+            ─────────────────────────
+            {% if states('input_select.bf_battery_count') != '1' %}
+            {{ states('input_text.bf_battery_1_name') }}: {{ state_attr('sensor.battery_fusion_soc', 'battery_1_soc_est') }}% (est.)
+            {{ states('input_text.bf_battery_2_name') }}: {{ state_attr('sensor.battery_fusion_soc', 'battery_2_soc_est') }}% (est.)
+            ─────────────────────────
+            {% endif %}
+            Kalibracja auto:
+            > {{ states('input_number.bf_voltage_full') }}V → 100%
+            < {{ states('input_number.bf_voltage_empty') }}V → 0%
+
+            Jeśli SoC odbiega od rzeczywistości — skalibruj ręcznie:
+            bf_battery_energy_kwh = bat1% × {{ states('input_number.bf_battery_1_capacity_kwh') }}
+                                  + bat2% × {{ states('input_number.bf_battery_2_capacity_kwh') }}
+    mode: single
