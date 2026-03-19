@@ -107,6 +107,26 @@ Full step-by-step: [docs/INSTALLATION.md](docs/INSTALLATION.md)
 
 ---
 
+## FAQ
+
+### Why does Battery Fusion SoC differ from the inverter at first?
+
+This is normal at startup.
+
+Battery Fusion begins with the initial value you set and then tracks real energy flow using its own Coulomb counter. The inverter often estimates SoC differently and may only see part of the system.
+
+Because of that, the values can differ at the beginning.
+
+After a few charge/discharge cycles — especially after a full charge (100%) and a deep discharge (near 0%) — the system auto-calibrates and the values should get much closer.
+
+If the difference stays large, check:
+- correct power sign (charge vs discharge),
+- correct voltage and current sensors,
+- accurate battery capacity values,
+- whether at least one full calibration cycle has occurred.
+
+---
+
 ## How it works
 
 ```
