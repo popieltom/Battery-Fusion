@@ -1,16 +1,21 @@
 # =============================================================
-# BATTERY FUSION — Template sensors (uniwersalne)
-# Wersja: 2.0
+# BATTERY FUSION — Template Sensors
+# Version: 2.1
 #
-# Wszystkie wartości czytane z input_number/input_text/input_boolean
-# — nie ma hardkodowanych stałych.
+# All values read from input_number/input_text/input_boolean
+# — no hardcoded constants.
+#
+# Provides:
+#   sensor.battery_fusion_soc              — combined SoC (%)
+#   sensor.battery_fusion_power_normalized — normalized power (W)
+#   sensor.battery_fusion_status           — system state
 # =============================================================
 
 template:
   - sensor:
 
       # ---------------------------------------------------------
-      # GŁÓWNY SENSOR SoC (Coulomb Counter)
+      # PRIMARY SoC SENSOR (Coulomb Counter)
       # ---------------------------------------------------------
       - name: "Battery Fusion SOC"
         unique_id: battery_fusion_soc
@@ -76,8 +81,8 @@ template:
             Real discharge ratio depends on internal resistance and BMS behavior.
 
       # ---------------------------------------------------------
-      # SENSOR MOCY — znormalizowany (uwzględnia odwrócony znak)
-      # Zawsze: wartość DODATNIA = rozładowanie, UJEMNA = ładowanie
+      # POWER SENSOR — normalized (handles inverted sign)
+      # Always: POSITIVE = discharging, NEGATIVE = charging
       # ---------------------------------------------------------
       - name: "Battery Fusion Power Normalized"
         unique_id: battery_fusion_power_normalized
@@ -102,7 +107,7 @@ template:
             {{ states('input_text.bf_power_sensor') }}
 
       # ---------------------------------------------------------
-      # STATUS systemu
+      # SYSTEM STATUS
       # ---------------------------------------------------------
       - name: "Battery Fusion Status"
         unique_id: battery_fusion_status
