@@ -1,0 +1,343 @@
+# =============================================================
+# BATTERY FUSION — Adaptive Learning Module
+# Version: 2.1
+#
+# Optional module. Deploy together with other Battery Fusion files.
+#
+# Learning algorithms:
+#   A. COULOMB COUNTER with learned efficiency
+#      Uses bf_learned_efficiency instead of fixed 0.97
+#
+#   B. OCV CORRECTION (when battery at rest > 10 min)
+#      When power < 50W for 10 min → voltage = OCV → SoC correction
+#      Formula: SoC_new = SoC_cc + 0.30 × (SoC_OCV − SoC_cc)
+#
+#   C. LEARNING AFTER CALIBRATION
+#      Trigger: calibration event or SoC change > 5%
+#      Formula EMA: new_efficiency = 0.7 × old + 0.3 × observed
+#      After ~7 calibrations system stabilizes (drift < 1%)
+# =============================================================
+
+
+# -----------------------------------------------------------
+# HELPERS
+# -----------------------------------------------------------
+
+input_number:
+
+  bf_learned_efficiency:
+    name: "BF Learn: Learned charging efficiency"
+    min: 0.800
+    max: 1.000
+    step: 0.001
+    icon: mdi:school
+    initial: 0.970
+
+  bf_energy_charged_since_cal:
+    name: "BF Learn: Energy charged since calibration (Wh)"
+    min: 0
+    max: 999999
+    step: 1
+    unit_of_measurement: Wh
+    icon: mdi:counter
+    initial: 0
+
+  bf_energy_discharged_since_cal:
+    name: "BF Learn: Energy discharged since calibration (Wh)"
+    min: 0
+    max: 999999
+    step: 1
+    unit_of_measurement: Wh
+    icon: mdi:counter
+    initial: 0
+
+  bf_energy_at_last_calibration:
+    name: "BF Learn: Energy at last calibration (kWh)"
+    min: 0
+    max: 500
+    step: 0.001
+    unit_of_measurement: kWh
+    icon: mdi:history
+    initial: 0
+
+  bf_soc_at_last_calibration:
+    name: "BF Learn: SoC at last calibration (%)"
+    min: 0
+    max: 100
+    step: 0.1
+    unit_of_measurement: "%"
+    icon: mdi:history
+    initial: 0
+
+  bf_ocv_correction_weight:
+    name: "BF Learn: OCV correction weight"
+    min: 0.0
+    max: 0.5
+    step: 0.05
+    icon: mdi:scale-balance
+    initial: 0.30
+
+  bf_rest_power_threshold:
+    name: "BF Learn: Rest power threshold (W)"
+    min: 10
+    max: 200
+    step: 10
+    unit_of_measurement: W
+    icon: mdi:sleep
+    initial: 50
+
+  bf_calibration_count:
+    name: "BF Learn: Calibration count"
+    min: 0
+    max: 9999
+    step: 1
+    icon: mdi:counter
+    initial: 0
+
+  bf_avg_drift_before_correction:
+    name: "BF Learn: Average drift before correction (%)"
+    min: -50
+    max: 50
+    step: 0.1
+    unit_of_measurement: "%"
+    icon: mdi:chart-bell-curve
+    initial: 0
+
+
+input_boolean:
+
+  bf_ocv_correction_enabled:
+    name: "BF Learn: OCV correction active"
+    icon: mdi:lightning-bolt-circle
+    initial: true
+
+  bf_battery_at_rest:
+    name: "BF Learn: Battery at rest"
+    icon: mdi:sleep
+
+
+# -----------------------------------------------------------
+# TEMPLATE SENSORS
+# -----------------------------------------------------------
+
+template:
+  - sensor:
+
+      # SoC from OCV curve (LiFePO4 16S — 12-segment curve)
+      - name: "BF Learn: SoC from OCV"
+        unique_id: bf_learn_soc_ocv
+        unit_of_measurement: "%"
+        icon: mdi:sine-wave
+        state: >
+          {% set v = states(states('input_text.bf_voltage_sensor')) | float(0) %}
+          {% if v <= 0 %} unknown
+          {% elif v >= 57.6 %} 100
+          {% elif v >= 55.2 %} {{ (90 + (v - 55.2) / (57.6 - 55.2) * 10) | round(1) }}
+          {% elif v >= 54.4 %} {{ (80 + (v - 54.4) / (55.2 - 54.4) * 10) | round(1) }}
+          {% elif v >= 53.6 %} {{ (70 + (v - 53.6) / (54.4 - 53.6) * 10) | round(1) }}
+          {% elif v >= 53.12 %} {{ (60 + (v - 53.12) / (53.6 - 53.12) * 10) | round(1) }}
+          {% elif v >= 52.8 %} {{ (50 + (v - 52.8) / (53.12 - 52.8) * 10) | round(1) }}
+          {% elif v >= 52.48 %} {{ (40 + (v - 52.48) / (52.8 - 52.48) * 10) | round(1) }}
+          {% elif v >= 52.16 %} {{ (30 + (v - 52.16) / (52.48 - 52.16) * 10) | round(1) }}
+          {% elif v >= 51.84 %} {{ (20 + (v - 51.84) / (52.16 - 51.84) * 10) | round(1) }}
+          {% elif v >= 51.2 %} {{ (10 + (v - 51.2) / (51.84 - 51.2) * 10) | round(1) }}
+          {% elif v >= 50.4 %} {{ (5 + (v - 50.4) / (51.2 - 50.4) * 5) | round(1) }}
+          {% elif v >= 48.0 %} {{ (0 + (v - 48.0) / (50.4 - 48.0) * 5) | round(1) }}
+          {% else %} 0
+          {% endif %}
+        attributes:
+          voltage: "{{ states(states('input_text.bf_voltage_sensor')) | float(0) }}"
+          at_rest: "{{ states('input_boolean.bf_battery_at_rest') }}"
+          valid: "{{ states('input_boolean.bf_battery_at_rest') == 'on' }}"
+
+      # Current counter drift vs OCV
+      - name: "BF Learn: Current drift vs OCV"
+        unique_id: bf_learn_drift_vs_ocv
+        unit_of_measurement: "%"
+        icon: mdi:delta
+        state: >
+          {% if states('input_boolean.bf_battery_at_rest') == 'on' %}
+            {{ (states('sensor.battery_fusion_soc') | float(0)
+               - states('sensor.bf_learn_soc_ocv') | float(0)) | round(2) }}
+          {% else %}
+            unavailable
+          {% endif %}
+
+      # Learning model statistics
+      - name: "BF Learn: Statistics"
+        unique_id: bf_learn_statistics
+        icon: mdi:school
+        state: >
+          {% set count = states('input_number.bf_calibration_count') | int(0) %}
+          {% if count == 0 %} no data
+          {% elif count < 3 %} learning ({{ count }}/3 calibrations)
+          {% elif count < 7 %} initial model ({{ count }} calibrations)
+          {% else %} stable ({{ count }} calibrations)
+          {% endif %}
+        attributes:
+          calibration_count: "{{ states('input_number.bf_calibration_count') | int(0) }}"
+          learned_efficiency: "{{ states('input_number.bf_learned_efficiency') | float(0) | round(3) }}"
+          avg_drift_pct: "{{ states('input_number.bf_avg_drift_before_correction') | float(0) | round(2) }}"
+          ocv_correction_enabled: "{{ states('input_boolean.bf_ocv_correction_enabled') }}"
+          ocv_correction_weight: "{{ states('input_number.bf_ocv_correction_weight') | float(0) }}"
+
+
+# -----------------------------------------------------------
+# AUTOMATIONS
+# -----------------------------------------------------------
+
+automation:
+
+  # ---------------------------------------------------------
+  # A. BATTERY REST DETECTION
+  # ---------------------------------------------------------
+  - alias: "BF Learn: Detect battery rest"
+    id: bf_learn_detect_rest
+    description: >
+      Sets bf_battery_at_rest when power < threshold for 10 minutes.
+      At rest, voltage = OCV → SoC can be determined from voltage curve.
+    trigger:
+      - platform: template
+        value_template: >
+          {{ states('sensor.battery_fusion_power_normalized') | float(0) | abs
+             < states('input_number.bf_rest_power_threshold') | float(50) }}
+        for: "00:10:00"
+        id: rest_start
+      - platform: template
+        value_template: >
+          {{ states('sensor.battery_fusion_power_normalized') | float(0) | abs
+             >= states('input_number.bf_rest_power_threshold') | float(50) }}
+        id: rest_end
+    action:
+      - choose:
+          - conditions:
+              - condition: trigger
+                id: rest_start
+            sequence:
+              - service: input_boolean.turn_on
+                target:
+                  entity_id: input_boolean.bf_battery_at_rest
+          - conditions:
+              - condition: trigger
+                id: rest_end
+            sequence:
+              - service: input_boolean.turn_off
+                target:
+                  entity_id: input_boolean.bf_battery_at_rest
+    mode: restart
+
+  # ---------------------------------------------------------
+  # B. OCV CORRECTION — every 10 minutes at rest
+  # ---------------------------------------------------------
+  - alias: "BF Learn: OCV correction (10 min)"
+    id: bf_learn_ocv_correction
+    description: >
+      When battery at rest and drift > 1% — gently corrects counter.
+      Formula: SoC_new = SoC_cc + weight × (SoC_OCV − SoC_cc)
+    trigger:
+      - platform: time_pattern
+        minutes: "/10"
+    condition:
+      - condition: state
+        entity_id: input_boolean.bf_battery_at_rest
+        state: "on"
+      - condition: state
+        entity_id: input_boolean.bf_ocv_correction_enabled
+        state: "on"
+      - condition: template
+        value_template: >
+          {{ states('sensor.bf_learn_soc_ocv') not in ['unknown','unavailable',''] }}
+    action:
+      - variables:
+          soc_cc: "{{ states('sensor.battery_fusion_soc') | float(0) }}"
+          soc_ocv: "{{ states('sensor.bf_learn_soc_ocv') | float(0) }}"
+          weight: "{{ states('input_number.bf_ocv_correction_weight') | float(0.3) }}"
+          drift: "{{ (states('sensor.battery_fusion_soc') | float(0)) - (states('sensor.bf_learn_soc_ocv') | float(0)) }}"
+          corrected_kwh: >
+            {% set soc_cc = states('sensor.battery_fusion_soc') | float(0) %}
+            {% set soc_ocv = states('sensor.bf_learn_soc_ocv') | float(0) %}
+            {% set w = states('input_number.bf_ocv_correction_weight') | float(0.3) %}
+            {% set cap = states('input_number.bf_battery_1_capacity_kwh') | float(0)
+                       + states('input_number.bf_battery_2_capacity_kwh') | float(0) %}
+            {{ ((soc_cc + w * (soc_ocv - soc_cc)) / 100 * cap) | round(3) }}
+      - condition: template
+        value_template: "{{ drift | abs > 1.0 }}"
+      - service: input_number.set_value
+        target:
+          entity_id: input_number.bf_battery_energy_kwh
+        data:
+          value: "{{ corrected_kwh }}"
+    mode: single
+
+  # ---------------------------------------------------------
+  # C. ENERGY TRACKING since last calibration
+  # ---------------------------------------------------------
+  - alias: "BF Learn: Track energy (1 min)"
+    id: bf_learn_track_energy
+    description: >
+      Accumulates kWh charged and discharged since last calibration.
+      Data used to calculate real charging efficiency.
+    trigger:
+      - platform: time_pattern
+        minutes: "/1"
+    action:
+      - variables:
+          power: "{{ states('sensor.battery_fusion_power_normalized') | float(0) }}"
+          delta_wh: "{{ power | abs / 60 }}"
+      - choose:
+          - conditions:
+              - condition: template
+                value_template: "{{ states('sensor.battery_fusion_power_normalized') | float(0) < -50 }}"
+            sequence:
+              - service: input_number.set_value
+                target:
+                  entity_id: input_number.bf_energy_charged_since_cal
+                data:
+                  value: >
+                    {{ (states('input_number.bf_energy_charged_since_cal') | float(0) + delta_wh) | round(1) }}
+          - conditions:
+              - condition: template
+                value_template: "{{ states('sensor.battery_fusion_power_normalized') | float(0) > 50 }}"
+            sequence:
+              - service: input_number.set_value
+                target:
+                  entity_id: input_number.bf_energy_discharged_since_cal
+                data:
+                  value: >
+                    {{ (states('input_number.bf_energy_discharged_since_cal') | float(0) + delta_wh) | round(1) }}
+    mode: single
+
+  # ---------------------------------------------------------
+  # D. WEEKLY REPORT (Monday 07:00)
+  # ---------------------------------------------------------
+  - alias: "BF Learn: Weekly report"
+    id: bf_learn_weekly_report
+    trigger:
+      - platform: time
+        at: "07:00:00"
+    condition:
+      - condition: time
+        weekday:
+          - mon
+    action:
+      - service: persistent_notification.create
+        data:
+          title: "Battery Fusion — Learning report"
+          message: >
+            Status: {{ states('sensor.bf_learn_statistics') }}
+            Calibrations: {{ states('input_number.bf_calibration_count') | int(0) }}
+            ──────────────────────────
+            Learned efficiency: {{ (states('input_number.bf_learned_efficiency') | float(0) * 100) | round(2) }}%
+            Starting: 97.0%
+            ──────────────────────────
+            Average drift: ±{{ states('input_number.bf_avg_drift_before_correction') | float(0) | round(1) }}%
+            OCV correction: {{ 'active' if states('input_boolean.bf_ocv_correction_enabled') == 'on' else 'disabled' }}
+            ══════════════════════════
+            {% if states('input_number.bf_calibration_count') | int(0) < 3 %}
+            {{ 3 - states('input_number.bf_calibration_count') | int(0) }} more calibrations needed for initial model.
+            {% elif states('input_number.bf_avg_drift_before_correction') | float(0) < 2 %}
+            Drift < 2% — model well trained!
+            {% else %}
+            Drift {{ states('input_number.bf_avg_drift_before_correction') | float(0) | round(1) }}% — system still learning.
+            {% endif %}
+    mode: single

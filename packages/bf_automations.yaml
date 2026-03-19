@@ -1,35 +1,35 @@
 # =============================================================
-# BATTERY FUSION — Automatyzacje (uniwersalne)
-# Wersja: 2.0
+# BATTERY FUSION — Automations
+# Version: 2.1
 #
-# Wszystkie progi i nazwy encji czytane z konfiguracji.
-# Nie ma hardkodowanych wartości — działa z każdym falownikiem.
+# All thresholds and entity names read from configuration.
+# No hardcoded values — works with any inverter.
+#
+# Automations included:
+#   1. Coulomb Counter (every 1 minute)
+#   2. Calibration at full charge (100%)
+#   3. Calibration at near-empty (~0%)
+#   4. Overload alert (one battery disconnects)
+#   5. Low SoC warning
+#   6. Nightly status log
 # =============================================================
 
 automation:
 
   # -----------------------------------------------------------
-  # 1. COULOMB COUNTER — aktualizacja co 1 minutę
+  # 1. COULOMB COUNTER — update every 1 minute
   # -----------------------------------------------------------
-  - alias: "🔋 Battery Fusion: Coulomb Counter (co 1 min)"
+  - alias: "Battery Fusion: Coulomb Counter (1 min)"
     id: battery_fusion_coulomb_counter
     description: >
-      Całkuje moc baterii po czasie. Sprawność ładowania pobierana
-      z input_number.bf_charge_efficiency.
-      Znak mocy automatycznie korygowany przez sensor.battery_fusion_power_normalized.
+      Integrates battery power over time. Charging efficiency read from
+      input_number.bf_charge_efficiency.
+      Power sign automatically corrected via sensor.battery_fusion_power_normalized.
     trigger:
       - platform: time_pattern
         minutes: "/1"
     action:
       - variables:
-          # Używamy znormalizowanego sensora mocy (+ = rozładowanie, - = ładowanie)
-          power: "{{ states('sensor.battery_fusion_power_normalized') | float(0) }}"
-          current_kwh: "{{ states('input_number.bf_battery_energy_kwh') | float(0) }}"
-          cap1: "{{ states('input_number.bf_battery_1_capacity_kwh') | float(0) }}"
-          cap2: "{{ states('input_number.bf_battery_2_capacity_kwh') | float(0) }}"
-          total_cap: "{{ states('input_number.bf_battery_1_capacity_kwh') | float(0) + states('input_number.bf_battery_2_capacity_kwh') | float(0) }}"
-          efficiency: "{{ states('input_number.bf_charge_efficiency') | float(97) / 100 }}"
-          delta_kwh: "{{ power / 1000 / 60 }}"
           new_kwh: >
             {% set cap = states('input_number.bf_battery_1_capacity_kwh') | float(0)
                        + states('input_number.bf_battery_2_capacity_kwh') | float(0) %}
@@ -50,13 +50,13 @@ automation:
     mode: single
 
   # -----------------------------------------------------------
-  # 2. KALIBRACJA — bateria pełna (100%)
+  # 2. CALIBRATION — battery full (100%)
   # -----------------------------------------------------------
-  - alias: "🔋 Battery Fusion: Kalibracja przy pełnym naładowaniu"
+  - alias: "Battery Fusion: Calibrate at full charge"
     id: battery_fusion_calibrate_full
     description: >
-      Resetuje licznik do pełnej pojemności gdy napięcie przekracza
-      próg ustawiony w bf_voltage_full przez 5 minut.
+      Resets counter to full capacity when voltage exceeds
+      bf_voltage_full threshold for 5 minutes.
     trigger:
       - platform: template
         value_template: >
@@ -74,7 +74,6 @@ automation:
           total_cap: >
             {{ states('input_number.bf_battery_1_capacity_kwh') | float(0)
              + states('input_number.bf_battery_2_capacity_kwh') | float(0) }}
-          v_sensor: "{{ states('input_text.bf_voltage_sensor') }}"
       - service: input_number.set_value
         target:
           entity_id: input_number.bf_battery_energy_kwh
@@ -82,21 +81,21 @@ automation:
           value: "{{ total_cap }}"
       - service: persistent_notification.create
         data:
-          title: "🔋 Battery Fusion — kalibracja 100%"
+          title: "Battery Fusion — calibrated 100%"
           message: >
-            Licznik skalibrowany do {{ states('input_number.bf_battery_1_capacity_kwh') | float(0)
-              + states('input_number.bf_battery_2_capacity_kwh') | float(0) }} kWh (pełne naładowanie).
-            Napięcie: {{ states(states('input_text.bf_voltage_sensor')) }} V
+            Counter calibrated to {{ states('input_number.bf_battery_1_capacity_kwh') | float(0)
+              + states('input_number.bf_battery_2_capacity_kwh') | float(0) }} kWh (full charge).
+            Voltage: {{ states(states('input_text.bf_voltage_sensor')) }} V
     mode: single
 
   # -----------------------------------------------------------
-  # 3. KALIBRACJA — bateria prawie pusta (0%)
+  # 3. CALIBRATION — battery near empty (~0%)
   # -----------------------------------------------------------
-  - alias: "🔋 Battery Fusion: Kalibracja przy minimalnym SoC"
+  - alias: "Battery Fusion: Calibrate at near-empty"
     id: battery_fusion_calibrate_empty
     description: >
-      Ustawia licznik na ~2% pojemności gdy napięcie spada
-      poniżej progu bf_voltage_empty przez 3 minuty.
+      Sets counter to ~2% of capacity when voltage drops
+      below bf_voltage_empty threshold for 3 minutes.
     trigger:
       - platform: template
         value_template: >
@@ -107,9 +106,6 @@ automation:
         for: "00:03:00"
     action:
       - variables:
-          total_cap: >
-            {{ states('input_number.bf_battery_1_capacity_kwh') | float(0)
-             + states('input_number.bf_battery_2_capacity_kwh') | float(0) }}
           residual_kwh: >
             {{ ((states('input_number.bf_battery_1_capacity_kwh') | float(0)
                + states('input_number.bf_battery_2_capacity_kwh') | float(0)) * 0.02) | round(2) }}
@@ -120,20 +116,20 @@ automation:
           value: "{{ residual_kwh }}"
       - service: persistent_notification.create
         data:
-          title: "🔋 Battery Fusion — kalibracja 0%"
+          title: "Battery Fusion — calibrated ~0%"
           message: >
-            Licznik skalibrowany do {{ residual_kwh }} kWh (~2% pojemności).
-            Napięcie: {{ states(states('input_text.bf_voltage_sensor')) }} V
+            Counter calibrated to {{ residual_kwh }} kWh (~2% capacity).
+            Voltage: {{ states(states('input_text.bf_voltage_sensor')) }} V
     mode: single
 
   # -----------------------------------------------------------
-  # 4. ALERT PRZECIĄŻENIA — gdy jedna bateria się odcina
+  # 4. OVERLOAD ALERT — when one battery disconnects
   # -----------------------------------------------------------
-  - alias: "⚠️ Battery Fusion: Alert przeciążenia"
+  - alias: "Battery Fusion: Overload alert"
     id: battery_fusion_overload_alert
     description: >
-      Wysyła powiadomienie gdy prąd przekracza próg bf_overload_current_threshold.
-      Scenariusz: jedna bateria odcięta przez BMS → cały prąd w drugiej.
+      Sends notification when current exceeds bf_overload_current_threshold.
+      Scenario: one battery cut off by BMS → full load on the other.
     trigger:
       - platform: template
         value_template: >
@@ -152,24 +148,24 @@ automation:
     action:
       - service: persistent_notification.create
         data:
-          title: "⚠️ Battery Fusion: Przeciążenie!"
+          title: "Battery Fusion: Overload detected!"
           message: >
-            Prąd: {{ states(states('input_text.bf_current_sensor')) | float(0) | abs | round(1) }} A
-            (próg: {{ states('input_number.bf_overload_current_threshold') | float(0) | round(0) }} A)
-            Moc: {{ states('sensor.battery_fusion_power_normalized') | float(0) | round(0) }} W
+            Current: {{ states(states('input_text.bf_current_sensor')) | float(0) | abs | round(1) }} A
+            (threshold: {{ states('input_number.bf_overload_current_threshold') | float(0) | round(0) }} A)
+            Power: {{ states('sensor.battery_fusion_power_normalized') | float(0) | round(0) }} W
             SoC: {{ states('sensor.battery_fusion_soc') }}%
 
-            Możliwe odcięcie jednej baterii przez BMS!
-            Sprawdź fizycznie stan baterii.
+            Possible BMS disconnection on one battery!
+            Check battery status physically.
     mode: single
 
   # -----------------------------------------------------------
-  # 5. OSTRZEŻENIE — niski SoC
+  # 5. LOW SoC WARNING
   # -----------------------------------------------------------
-  - alias: "🔋 Battery Fusion: Ostrzeżenie niskiego SoC"
+  - alias: "Battery Fusion: Low SoC warning"
     id: battery_fusion_low_soc_warning
     description: >
-      Powiadomienie gdy SoC spada poniżej progu bf_low_soc_threshold.
+      Notification when SoC drops below bf_low_soc_threshold.
     trigger:
       - platform: template
         value_template: >
@@ -180,11 +176,11 @@ automation:
     action:
       - service: persistent_notification.create
         data:
-          title: "🔋 Battery Fusion: Niski SoC!"
+          title: "Battery Fusion: Low SoC!"
           message: >
             SoC: {{ states('sensor.battery_fusion_soc') }}%
-            (próg: {{ states('input_number.bf_low_soc_threshold') | float(0) | round(0) }}%)
-            Energia: {{ states('input_number.bf_battery_energy_kwh') | float(0) | round(2) }} kWh
+            (threshold: {{ states('input_number.bf_low_soc_threshold') | float(0) | round(0) }}%)
+            Energy: {{ states('input_number.bf_battery_energy_kwh') | float(0) | round(2) }} kWh
             {% if states('input_select.bf_battery_count') != '1' %}
             {{ states('input_text.bf_battery_1_name') }} est.: {{ state_attr('sensor.battery_fusion_soc', 'battery_1_soc_est') }}%
             {{ states('input_text.bf_battery_2_name') }} est.: {{ state_attr('sensor.battery_fusion_soc', 'battery_2_soc_est') }}%
@@ -192,40 +188,40 @@ automation:
     mode: single
 
   # -----------------------------------------------------------
-  # 6. LOG NOCNY o 00:00
+  # 6. NIGHTLY LOG at 00:00
   # -----------------------------------------------------------
-  - alias: "🔋 Battery Fusion: Log nocny (00:00)"
+  - alias: "Battery Fusion: Nightly log"
     id: battery_fusion_nightly_log
     description: >
-      Co noc o 00:00 loguje stan systemu.
-      Pozwala śledzić dryf licznika Coulomba.
+      Logs system state every night at 00:00.
+      Useful for tracking Coulomb counter drift over time.
     trigger:
       - platform: time
         at: "00:00:30"
     action:
       - service: persistent_notification.create
         data:
-          title: "🔋 Battery Fusion — raport nocny"
+          title: "Battery Fusion — nightly report"
           message: >
-            Stan na 00:00:
+            Status at 00:00:
             ─────────────────────────
             SoC: {{ states('sensor.battery_fusion_soc') }}%
-            Energia: {{ states('input_number.bf_battery_energy_kwh') | float(0) | round(2) }} kWh
+            Energy: {{ states('input_number.bf_battery_energy_kwh') | float(0) | round(2) }} kWh
               / {{ (states('input_number.bf_battery_1_capacity_kwh') | float(0)
                   + states('input_number.bf_battery_2_capacity_kwh') | float(0)) | round(1) }} kWh
-            Napięcie: {{ states(states('input_text.bf_voltage_sensor')) }} V
-            Chemia: {{ states('input_select.bf_battery_chemistry') }}
+            Voltage: {{ states(states('input_text.bf_voltage_sensor')) }} V
+            Chemistry: {{ states('input_select.bf_battery_chemistry') }}
             ─────────────────────────
             {% if states('input_select.bf_battery_count') != '1' %}
             {{ states('input_text.bf_battery_1_name') }}: {{ state_attr('sensor.battery_fusion_soc', 'battery_1_soc_est') }}% (est.)
             {{ states('input_text.bf_battery_2_name') }}: {{ state_attr('sensor.battery_fusion_soc', 'battery_2_soc_est') }}% (est.)
             ─────────────────────────
             {% endif %}
-            Kalibracja auto:
+            Auto-calibration:
             > {{ states('input_number.bf_voltage_full') }}V → 100%
             < {{ states('input_number.bf_voltage_empty') }}V → 0%
 
-            Jeśli SoC odbiega od rzeczywistości — skalibruj ręcznie:
+            If SoC drifts from reality — calibrate manually:
             bf_battery_energy_kwh = bat1% × {{ states('input_number.bf_battery_1_capacity_kwh') }}
                                   + bat2% × {{ states('input_number.bf_battery_2_capacity_kwh') }}
     mode: single
