@@ -33,6 +33,30 @@ input_number:
     icon: mdi:battery
     initial: 16.0
 
+  # -----------------------------------------------------------
+  # CALIBRATION — initial SoC per battery
+  # Used by the "Apply calibration" button on the Lovelace card
+  # and by script.battery_fusion_apply_calibration.
+  # Set these to your best estimate, then press Apply.
+  # -----------------------------------------------------------
+  bf_battery_1_initial_soc:
+    name: "BF: Battery 1 initial SoC (%)"
+    min: 0
+    max: 100
+    step: 1
+    unit_of_measurement: "%"
+    icon: mdi:battery-50
+    initial: 50
+
+  bf_battery_2_initial_soc:
+    name: "BF: Battery 2 initial SoC (%)"
+    min: 0
+    max: 100
+    step: 1
+    unit_of_measurement: "%"
+    icon: mdi:battery-50
+    initial: 50
+
   # Current energy stored (Coulomb Counter state)
   bf_battery_energy_kwh:
     name: "BF: Energy in batteries (kWh)"

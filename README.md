@@ -90,6 +90,7 @@ homeassistant:
     bf_config:       !include packages/bf_configuration.yaml
     bf_templates:    !include packages/bf_templates.yaml
     bf_automations:  !include packages/bf_automations.yaml
+    bf_scripts:      !include packages/bf_scripts.yaml
     # Optional adaptive learning:
     # bf_learning:   !include packages/bf_learning.yaml
 ```
@@ -184,8 +185,10 @@ Battery-Fusion/
 │   ├── bf_configuration.yaml   ← fill in your sensor entity IDs and capacities
 │   ├── bf_templates.yaml       ← SoC, power, and status sensors
 │   ├── bf_automations.yaml     ← Coulomb counter, calibration, alerts
+│   ├── bf_scripts.yaml         ← calibration scripts (apply / calibrate from voltage)
 │   └── bf_learning.yaml        ← adaptive learning module (optional)
 ├── dashboard/
+│   ├── battery_fusion_card.yaml  ← Lovelace entities card (paste into Manual Card)
 │   └── battery_fusion_live.html  ← standalone live monitoring widget
 ├── docs/
 │   ├── INSTALLATION.md         ← step-by-step setup guide
@@ -197,6 +200,39 @@ Battery-Fusion/
 ├── hacs.json
 └── LICENSE
 ```
+
+---
+
+## Lovelace card
+
+Battery Fusion includes a ready-to-paste Lovelace dashboard card at `dashboard/battery_fusion_card.yaml`.
+
+**How to add it:**
+
+1. Open your Lovelace dashboard → **Edit mode**
+2. Click **Add card → Manual**
+3. Paste the content of `dashboard/battery_fusion_card.yaml`
+4. Save
+
+**The card shows:**
+
+| Section | Entities |
+|---------|----------|
+| State of Charge | Combined SoC, Battery 1 SoC (est.), Battery 2 SoC (est.) |
+| Energy & Power | Total Energy (kWh), Power (W), State |
+| Calibration | Battery 1 initial SoC, Battery 2 initial SoC, Apply calibration, Calibrate from voltage |
+
+**No entity IDs need to be changed** if you installed Battery Fusion using the standard package names.
+
+If you renamed any helpers, update the `entity:` values in the card to match.
+
+> This is a universal template. It does not reference any specific hardware brand, inverter model, or location. The names "Battery 1" and "Battery 2" are generic labels — they refer to your actual batteries via the capacity values you configured in `bf_configuration.yaml`.
+
+**Calibration workflow:**
+
+- Set "Battery 1 initial SoC" and "Battery 2 initial SoC" sliders to your actual battery charge levels
+- Press **Apply calibration** → the Coulomb counter is recalculated immediately
+- Or press **Calibrate from voltage** → SoC is estimated from the current battery voltage (best after 10+ minutes idle)
 
 ---
 
