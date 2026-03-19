@@ -113,10 +113,42 @@ Make sure you've added a valid Long-Lived Access Token inside the HTML file (rep
 
 **Can I add the dashboard to my HA Lovelace?**
 
-You can embed it using the `webpage` card:
+You can embed the live HTML widget using the `webpage` card:
 ```yaml
 type: webpage
 url: /local/battery_fusion_live.html
 ```
 
-A native Lovelace YAML dashboard card is on the roadmap.
+You can also use the native Lovelace YAML card — see below.
+
+**How do I add the Lovelace entities card?**
+
+Battery Fusion includes a ready-to-paste Lovelace card at `dashboard/battery_fusion_card.yaml`.
+
+Steps:
+1. Open your Lovelace dashboard in **Edit mode**
+2. Click **Add card → Manual**
+3. Paste the contents of `dashboard/battery_fusion_card.yaml`
+4. Save
+
+No entity ID changes are needed if you installed Battery Fusion using the standard package names from `bf_configuration.yaml`.
+
+The card includes: Combined SoC, per-battery SoC estimates, total energy, power, system state, capacity inputs, voltage thresholds, and a manual calibration field.
+
+**What entities does the Lovelace card use?**
+
+All entities are created automatically by `packages/bf_configuration.yaml`:
+
+| Entity | Description |
+|--------|-------------|
+| `sensor.battery_fusion_soc` | Combined SoC (%) |
+| `sensor.battery_fusion_power_normalized` | Power flow (W) |
+| `sensor.battery_fusion_status` | System state |
+| `input_number.bf_battery_energy_kwh` | Coulomb counter / manual calibration |
+| `input_number.bf_battery_1_capacity_kwh` | Battery 1 capacity |
+| `input_number.bf_battery_2_capacity_kwh` | Battery 2 capacity |
+| `input_number.bf_voltage_full` | Full-charge voltage threshold |
+| `input_number.bf_voltage_empty` | Empty-charge voltage threshold |
+| `script.battery_fusion_calibrate_from_voltage` | Voltage-based calibration (optional) |
+
+The last entry (calibrate from voltage) requires a small script — the full YAML is included as a comment inside `battery_fusion_card.yaml`.

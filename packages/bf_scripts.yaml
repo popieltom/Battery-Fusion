@@ -1,0 +1,104 @@
+# =============================================================
+# BATTERY FUSION — Calibration Scripts
+# Version: 2.1
+#
+# Provides two calibration actions for the Lovelace card:
+#   script.battery_fusion_apply_calibration
+#     — computes total energy from per-battery SoC inputs and
+#       writes the result to the Coulomb counter.
+#   script.battery_fusion_calibrate_from_voltage
+#     — estimates SoC from the current battery voltage using the
+#       configured full/empty thresholds.
+#
+# Add to configuration.yaml:
+#   homeassistant:
+#     packages:
+#       bf_scripts: !include packages/bf_scripts.yaml
+# =============================================================
+
+script:
+
+  # -----------------------------------------------------------
+  # APPLY CALIBRATION
+  # Reads bf_battery_1_initial_soc and bf_battery_2_initial_soc,
+  # converts them to kWh using the configured capacities, and
+  # writes the sum to bf_battery_energy_kwh.
+  # -----------------------------------------------------------
+  battery_fusion_apply_calibration:
+    alias: "BF: Apply calibration"
+    icon: mdi:check-circle-outline
+    description: >
+      Sets the Coulomb counter to the energy calculated from
+      bf_battery_1_initial_soc and bf_battery_2_initial_soc.
+    sequence:
+      - variables:
+          soc1: "{{ states('input_number.bf_battery_1_initial_soc') | float(0) / 100 }}"
+          soc2: "{{ states('input_number.bf_battery_2_initial_soc') | float(0) / 100 }}"
+          cap1: "{{ states('input_number.bf_battery_1_capacity_kwh') | float(0) }}"
+          cap2: "{{ states('input_number.bf_battery_2_capacity_kwh') | float(0) }}"
+          energy: "{{ ((soc1 * cap1) + (soc2 * cap2)) | round(3) }}"
+      - service: input_number.set_value
+        target:
+          entity_id: input_number.bf_battery_energy_kwh
+        data:
+          value: "{{ energy }}"
+      - service: persistent_notification.create
+        data:
+          title: "Battery Fusion — manual calibration applied"
+          message: >
+            Coulomb counter set to {{ energy }} kWh
+            (Battery 1: {{ (soc1 * 100) | round(0) }}% × {{ cap1 }} kWh,
+             Battery 2: {{ (soc2 * 100) | round(0) }}% × {{ cap2 }} kWh)
+    mode: single
+
+  # -----------------------------------------------------------
+  # CALIBRATE FROM VOLTAGE
+  # Reads the current battery voltage from the sensor configured
+  # in input_text.bf_voltage_sensor and maps it linearly between
+  # bf_voltage_empty (0%) and bf_voltage_full (100%).
+  # Only use when the battery has been idle for several minutes.
+  # -----------------------------------------------------------
+  battery_fusion_calibrate_from_voltage:
+    alias: "BF: Calibrate from voltage"
+    icon: mdi:tune
+    description: >
+      Estimates SoC from current battery voltage using linear
+      interpolation between bf_voltage_empty and bf_voltage_full.
+      Best used after the battery has been idle for 10+ minutes (OCV).
+    sequence:
+      - variables:
+          v_sensor: "{{ states('input_text.bf_voltage_sensor') }}"
+          v:        "{{ states(v_sensor) | float(0) }}"
+          v_full:   "{{ states('input_number.bf_voltage_full')  | float(55.0) }}"
+          v_empty:  "{{ states('input_number.bf_voltage_empty') | float(48.0) }}"
+          cap:      >
+            {{ states('input_number.bf_battery_1_capacity_kwh') | float(0)
+             + states('input_number.bf_battery_2_capacity_kwh') | float(0) }}
+          soc_raw:  "{{ ((v - v_empty) / (v_full - v_empty)) | float(0) }}"
+          soc:      "{{ [[soc_raw, 0] | max, 1] | min }}"
+          energy:   "{{ (soc * cap) | round(3) }}"
+      - choose:
+          - conditions:
+              - condition: template
+                value_template: "{{ v <= 0 }}"
+            sequence:
+              - service: persistent_notification.create
+                data:
+                  title: "Battery Fusion — calibration skipped"
+                  message: >
+                    Voltage sensor ({{ v_sensor }}) returned 0 or unavailable.
+                    Check input_text.bf_voltage_sensor entity ID.
+        default:
+          - service: input_number.set_value
+            target:
+              entity_id: input_number.bf_battery_energy_kwh
+            data:
+              value: "{{ energy }}"
+          - service: persistent_notification.create
+            data:
+              title: "Battery Fusion — calibrated from voltage"
+              message: >
+                Voltage: {{ v }} V
+                Estimated SoC: {{ (soc * 100) | round(1) }}%
+                Coulomb counter set to: {{ energy }} kWh / {{ cap | round(1) }} kWh
+    mode: single

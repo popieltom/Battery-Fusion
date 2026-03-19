@@ -164,12 +164,12 @@ const BF_CONFIG = {
   token: '',   // e.g. 'eyJ0eXAiOi...'
 
   // Battery names (shown in the battery rows)
-  bat1Name: 'Battery 1',
-  bat2Name: 'Battery 2',
+  bat1Name: 'Bateria 1',
+  bat2Name: 'Bateria 2',
 
   // Optional: override if you want static labels in the header
   // Leave empty to auto-generate from HA state
-  headerSub: '',   // e.g. 'LiFePO4 12.5 kWh + NMC 16.0 kWh'
+  headerSub: 'LiFePO4 12.5 kWh + LiFePO4 16.0 kWh',
 
   // Optional: set to true if bf_learning.yaml is active
   // Dashboard will show the adaptive learning card
@@ -183,7 +183,7 @@ const BF_CONFIG = {
   // These are NOT core Battery Fusion entities — they are extras
   // specific to your installation. Set to '' if you don't have them.
   extraSensors: {
-    temperature: '',       // e.g. 'sensor.inverter_battery_temperature'
+    temperature: 'sensor.inverter_battery_temperature',
   }
 };
 // =============================================================
