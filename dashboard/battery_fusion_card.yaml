@@ -1,14 +1,11 @@
 # =============================================================
 # BATTERY FUSION — Lovelace Entities Card
-# Version: 2.1
-#
-# This is a universal template — works with any inverter or
-# battery brand. No hardware-specific names are used.
+# Version: 2.2
 #
 # HOW TO ADD TO LOVELACE:
 #   1. Open your Lovelace dashboard → Edit mode
 #   2. Add card → Manual
-#   3. Paste the content below (starting from "type: entities")
+#   3. Paste everything from "type: entities" onwards
 #   4. Save
 #
 # REQUIRED PACKAGES (copy to your HA packages/ directory):
@@ -16,9 +13,6 @@
 #   bf_templates.yaml      — sensor.battery_fusion_soc etc.
 #   bf_automations.yaml    — Coulomb counter and auto-calibration
 #   bf_scripts.yaml        — Apply calibration and Calibrate from voltage
-#
-# All entity IDs below match the defaults in bf_configuration.yaml.
-# If you renamed your helpers, update the entity IDs accordingly.
 #
 # ENTITIES USED:
 #   sensor.battery_fusion_soc              (bf_templates.yaml)
@@ -29,25 +23,26 @@
 #   input_number.bf_battery_2_initial_soc  (bf_configuration.yaml)
 #   script.battery_fusion_apply_calibration       (bf_scripts.yaml)
 #   script.battery_fusion_calibrate_from_voltage  (bf_scripts.yaml)
+#
+# Per-battery SoC values are proportional estimates based on
+# configured capacities — not individual BMS readings.
 # =============================================================
 
 type: entities
-title: Battery Fusion
+title: 🔋 Battery Fusion — Calibration
+state_color: true
 show_header_toggle: false
 
 entities:
 
   # -----------------------------------------------------------
   # STATE OF CHARGE
-  # Combined SoC is calculated by the Coulomb counter.
-  # Per-battery values are proportional estimates derived from
-  # the configured capacities — not individual BMS readings.
   # -----------------------------------------------------------
   - type: section
     label: State of Charge
 
   - entity: sensor.battery_fusion_soc
-    name: Combined SoC
+    name: 🔋 Combined SoC
     icon: mdi:battery-charging
 
   - type: attribute
@@ -67,54 +62,53 @@ entities:
   # -----------------------------------------------------------
   # ENERGY & POWER
   # -----------------------------------------------------------
-  - type: section
-    label: Energy & Power
+  - type: divider
 
   - entity: input_number.bf_battery_energy_kwh
-    name: Total Energy
+    name: ⚡ Total Energy
     icon: mdi:lightning-bolt
 
   - entity: sensor.battery_fusion_power_normalized
-    name: Power
+    name: 📊 Power
     icon: mdi:transmission-tower
 
   - entity: sensor.battery_fusion_status
-    name: State
+    name: 🔄 State
     icon: mdi:information-outline
 
   # -----------------------------------------------------------
   # CALIBRATION
   #
-  # How to calibrate:
-  #   1. Look at your battery display or BMS app for each battery's SOC.
+  # How to calibrate manually:
+  #   1. Check your battery display or BMS app for each battery's SoC.
   #   2. Set the sliders below to those values.
-  #   3. Press "Apply calibration".
-  #      The Coulomb counter is recalculated as:
-  #        energy = (bat1_soc/100 × cap1_kWh) + (bat2_soc/100 × cap2_kWh)
+  #   3. Press "Apply calibration" — the Coulomb counter is updated:
+  #        energy = (bat1% / 100 × cap1_kWh) + (bat2% / 100 × cap2_kWh)
   #
-  # Alternative — calibrate from voltage:
-  #   Use when the battery has been idle for 10+ minutes.
-  #   Battery Fusion reads the current voltage and maps it linearly
-  #   between the configured empty and full voltage thresholds.
+  # Calibrate from voltage:
+  #   Use when the battery has been idle for 10+ minutes (OCV stable).
+  #   Voltage is mapped linearly between bf_voltage_empty and bf_voltage_full.
   #
-  # NOTE: Auto-calibration (at full/empty voltage) runs automatically —
-  #   manual calibration is only needed at startup or after a long outage.
+  # Auto-calibration runs automatically at full/empty voltage —
+  # manual calibration is only needed at first start or after a long outage.
   # -----------------------------------------------------------
+  - type: divider
+
   - type: section
     label: Calibration
 
   - entity: input_number.bf_battery_1_initial_soc
-    name: Battery 1 initial SoC
+    name: ⬆ Battery 1 initial SoC
     icon: mdi:battery-50
 
   - entity: input_number.bf_battery_2_initial_soc
-    name: Battery 2 initial SoC
+    name: ⬆ Battery 2 initial SoC
     icon: mdi:battery-50
 
   - entity: script.battery_fusion_apply_calibration
-    name: Apply calibration
+    name: ✅ Apply calibration
     icon: mdi:check-circle-outline
 
   - entity: script.battery_fusion_calibrate_from_voltage
-    name: Calibrate from voltage
+    name: ⚡ Calibrate from voltage (idle)
     icon: mdi:tune
