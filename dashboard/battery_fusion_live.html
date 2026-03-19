@@ -1,41 +1,62 @@
+<!--
+  Battery Fusion — Live Dashboard
+  Version: 2.1
+
+  SETUP:
+  1. Copy this file to your Home Assistant www/ folder
+  2. Open: http://your-ha-ip:8123/local/battery_fusion_live.html
+  3. Edit the CONFIGURATION section below to match your setup
+
+  AUTHENTICATION:
+  This page needs a Long-Lived Access Token to read HA state.
+  Set window.__HA_TOKEN in the CONFIGURATION section, or pass via URL:
+    ?token=YOUR_TOKEN
+-->
 <style>
   .fusion-card { padding: 1rem 0; }
   .header { display:flex; align-items:center; gap:12px; margin-bottom:1.2rem; }
-  .header-title { font-size:18px; font-weight:500; color:var(--color-text-primary); }
-  .header-sub { font-size:13px; color:var(--color-text-secondary); }
+  .header-title { font-size:18px; font-weight:500; color:var(--color-text-primary,#1a1a1a); }
+  .header-sub { font-size:13px; color:var(--color-text-secondary,#666); }
   .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:12px; }
   .grid3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; margin-bottom:12px; }
-  .card { background:var(--color-background-secondary); border:1px solid var(--color-border-tertiary); border-radius:12px; padding:14px 16px; }
-  .card-label { font-size:11px; color:var(--color-text-tertiary); text-transform:uppercase; letter-spacing:.04em; margin-bottom:6px; }
-  .card-value { font-size:26px; font-weight:500; color:var(--color-text-primary); line-height:1; }
-  .card-unit { font-size:13px; color:var(--color-text-secondary); margin-left:3px; }
-  .card-sub { font-size:12px; color:var(--color-text-secondary); margin-top:5px; }
-  .bar-wrap { background:var(--color-border-tertiary); border-radius:6px; height:10px; margin-top:10px; overflow:hidden; }
+  .card { background:var(--color-background-secondary,#f5f5f5); border:1px solid var(--color-border-tertiary,#ddd); border-radius:12px; padding:14px 16px; }
+  .card-label { font-size:11px; color:var(--color-text-tertiary,#999); text-transform:uppercase; letter-spacing:.04em; margin-bottom:6px; }
+  .card-value { font-size:26px; font-weight:500; color:var(--color-text-primary,#1a1a1a); line-height:1; }
+  .card-unit { font-size:13px; color:var(--color-text-secondary,#666); margin-left:3px; }
+  .card-sub { font-size:12px; color:var(--color-text-secondary,#666); margin-top:5px; }
+  .bar-wrap { background:var(--color-border-tertiary,#ddd); border-radius:6px; height:10px; margin-top:10px; overflow:hidden; }
   .bar-fill { height:100%; border-radius:6px; transition:width .5s; }
-  .bat-row { display:flex; align-items:center; gap:10px; padding:10px 0; border-bottom:1px solid var(--color-border-tertiary); }
+  .bat-row { display:flex; align-items:center; gap:10px; padding:10px 0; border-bottom:1px solid var(--color-border-tertiary,#ddd); }
   .bat-row:last-child { border-bottom:none; }
   .bat-dot { width:10px; height:10px; border-radius:50%; flex-shrink:0; }
-  .bat-name { font-size:13px; font-weight:500; color:var(--color-text-primary); min-width:90px; }
-  .bat-detail { font-size:12px; color:var(--color-text-secondary); flex:1; }
-  .bat-pct { font-size:15px; font-weight:500; color:var(--color-text-primary); }
+  .bat-name { font-size:13px; font-weight:500; color:var(--color-text-primary,#1a1a1a); min-width:90px; }
+  .bat-detail { font-size:12px; color:var(--color-text-secondary,#666); flex:1; }
+  .bat-pct { font-size:15px; font-weight:500; color:var(--color-text-primary,#1a1a1a); }
   .status-row { display:flex; gap:8px; flex-wrap:wrap; margin-top:8px; }
   .pill { font-size:11px; padding:3px 10px; border-radius:20px; font-weight:500; }
   .pill-green { background:#EAF3DE; color:#27500A; }
   .pill-amber { background:#FAEEDA; color:#633806; }
-  .pill-blue { background:#E6F1FB; color:#0C447C; }
-  .pill-gray { background:#F1EFE8; color:#444441; }
-  .pill-red { background:#FCEBEB; color:#791F1F; }
-  .pill-purple { background:#EEEDFE; color:#3C3489; }
+  .pill-blue  { background:#E6F1FB; color:#0C447C; }
+  .pill-gray  { background:#F1EFE8; color:#444441; }
+  .pill-red   { background:#FCEBEB; color:#791F1F; }
   @media (prefers-color-scheme: dark) {
+    .header-title { color:#e8e8e8; }
+    .header-sub { color:#aaa; }
+    .card { background:#1e1e1e; border-color:#333; }
+    .card-label { color:#888; }
+    .card-value { color:#e8e8e8; }
+    .card-sub { color:#aaa; }
+    .bar-wrap { background:#333; }
+    .bat-name { color:#e8e8e8; }
+    .bat-detail { color:#aaa; }
+    .bat-pct { color:#e8e8e8; }
+    .bat-row { border-bottom-color:#333; }
     .pill-green  { background:#173404; color:#C0DD97; }
     .pill-amber  { background:#412402; color:#FAC775; }
     .pill-blue   { background:#042C53; color:#B5D4F4; }
     .pill-gray   { background:#2C2C2A; color:#D3D1C7; }
     .pill-red    { background:#501313; color:#F7C1C1; }
-    .pill-purple { background:#26215C; color:#CECBF6; }
   }
-  .pv-row { display:flex; justify-content:space-between; align-items:center; padding:7px 0; border-bottom:1px solid var(--color-border-tertiary); }
-  .pv-row:last-child { border-bottom:none; }
   .alert-banner { display:none; border-radius:8px; padding:10px 14px; margin-bottom:12px; font-size:12px; font-weight:500; border:1px solid; }
   .alert-overload { background:#FCEBEB; color:#791F1F; border-color:#F09595; }
   .alert-low-soc  { background:#FAEEDA; color:#633806; border-color:#EF9F27; }
@@ -43,9 +64,9 @@
     .alert-overload { background:#501313; color:#F7C1C1; border-color:#A32D2D; }
     .alert-low-soc  { background:#412402; color:#FAC775; border-color:#854F0B; }
   }
-  .est-label { font-size:10px; color:var(--color-text-tertiary); margin-left:3px; }
-  .calib-note { font-size:10px; color:var(--color-text-tertiary); margin-top:4px; }
-  .learn-row { display:flex; justify-content:space-between; align-items:center; padding:6px 0; border-bottom:1px solid var(--color-border-tertiary); }
+  .est-label { font-size:10px; color:var(--color-text-tertiary,#999); margin-left:3px; }
+  .calib-note { font-size:10px; color:var(--color-text-tertiary,#999); margin-top:4px; }
+  .learn-row { display:flex; justify-content:space-between; align-items:center; padding:6px 0; border-bottom:1px solid var(--color-border-tertiary,#ddd); }
   .learn-row:last-child { border-bottom:none; }
 </style>
 
@@ -54,164 +75,236 @@
   <!-- HEADER -->
   <div class="header">
     <div>
-      <div class="header-title">Battery Fusion — Live</div>
-      <div class="header-sub">Felicity 12.5 kWh + JK BMS 16.0 kWh · łącznie 28.5 kWh · v2.1</div>
+      <div class="header-title" id="header-title">Battery Fusion — Live</div>
+      <div class="header-sub" id="header-sub">Loading...</div>
     </div>
   </div>
 
-  <!-- ALERTY -->
+  <!-- ALERTS -->
   <div class="alert-banner alert-overload" id="alert-overload">
-    ⚠️ Przeciążenie JK BMS! Prąd &gt; 120A — sprawdź czy Felicity nie odcięty.
+    ⚠️ Overload detected! Current exceeds threshold — check if one battery disconnected.
   </div>
   <div class="alert-banner alert-low-soc" id="alert-low-soc">
-    🔋 Niski SoC (&lt; 15%) — rozważ ograniczenie rozładowania.
+    🔋 Low SoC — consider limiting discharge.
   </div>
 
-  <!-- GŁÓWNE WSKAŹNIKI -->
+  <!-- MAIN METRICS -->
   <div class="grid3">
     <div class="card">
-      <div class="card-label">SoC łączny</div>
+      <div class="card-label">Combined SoC</div>
       <div class="card-value" id="soc-val">—<span class="card-unit">%</span></div>
       <div class="bar-wrap"><div class="bar-fill" id="soc-bar" style="background:#639922;width:0%"></div></div>
-      <div class="card-sub" id="soc-kwh">— kWh z 28.5 kWh</div>
-      <div class="calib-note">auto-kalibracja: &gt;55V→100% / &lt;48.2V→0%</div>
+      <div class="card-sub" id="soc-kwh">—</div>
+      <div class="calib-note" id="calib-note">auto-calibration: voltage thresholds</div>
     </div>
     <div class="card">
-      <div class="card-label">Temperatura</div>
-      <div class="card-value" id="temp-val">—<span class="card-unit">°C</span></div>
-      <div class="card-sub" id="temp-sub">JK BMS</div>
+      <div class="card-label">Power flow</div>
+      <div class="card-value" id="power-val">—<span class="card-unit">W</span></div>
+      <div class="card-sub" id="power-sub">+ = discharge  − = charge</div>
     </div>
     <div class="card">
-      <div class="card-label">PV teraz</div>
-      <div class="card-value" id="pv-val">—<span class="card-unit">W</span></div>
-      <div class="card-sub" id="pv-sub">Solcast: — W</div>
+      <div class="card-label">Status</div>
+      <div class="card-value" id="status-val" style="font-size:18px;margin-top:4px">—</div>
+      <div class="card-sub" id="voltage-sub">—</div>
     </div>
   </div>
 
-  <!-- BATERIE -->
+  <!-- BATTERIES -->
   <div class="card" style="margin-bottom:12px">
-    <div class="card-label">Magazyny energii</div>
+    <div class="card-label">Energy storage systems</div>
     <div class="bat-row">
       <div class="bat-dot" style="background:#1D9E75"></div>
-      <div class="bat-name">Felicity ESS</div>
-      <div class="bat-detail">12.5 kWh · 250 Ah · fizycznie równolegle</div>
-      <div class="bat-pct"><span id="fel-pct">—</span><span class="est-label">est.</span></div>
+      <div class="bat-name" id="bat1-name">Battery 1</div>
+      <div class="bat-detail" id="bat1-detail">—</div>
+      <div class="bat-pct"><span id="bat1-pct">—</span><span class="est-label">est.</span></div>
     </div>
     <div class="bat-row">
       <div class="bat-dot" style="background:#7F77DD"></div>
-      <div class="bat-name">JK BMS V19</div>
-      <div class="bat-detail">16.0 kWh · 280 Ah · UART → YamBMS</div>
-      <div class="bat-pct"><span id="jk-pct">—</span><span class="est-label">est.</span></div>
+      <div class="bat-name" id="bat2-name">Battery 2</div>
+      <div class="bat-detail" id="bat2-detail">—</div>
+      <div class="bat-pct"><span id="bat2-pct">—</span><span class="est-label">est.</span></div>
     </div>
     <div class="status-row" id="status-pills">
-      <span class="pill pill-gray">ładowanie...</span>
+      <span class="pill pill-gray">loading...</span>
     </div>
-    <div class="calib-note" style="margin-top:8px">Wartości per-battery to estymacja proporcjonalna — nie rzeczywisty pomiar BMS</div>
+    <div class="calib-note" style="margin-top:8px">Per-battery values are proportional estimates — not individual BMS readings</div>
   </div>
 
-  <!-- UCZENIE -->
-  <div class="card" style="margin-bottom:12px">
-    <div class="card-label">🧠 Adaptacyjne uczenie</div>
+  <!-- ADAPTIVE LEARNING (only shown if bf_learning.yaml is active) -->
+  <div class="card" id="learning-card" style="margin-bottom:12px;display:none">
+    <div class="card-label">Adaptive Learning</div>
     <div class="learn-row">
-      <span style="font-size:12px;color:var(--color-text-secondary)">Status modelu</span>
+      <span style="font-size:12px;color:var(--color-text-secondary,#666)">Model status</span>
       <span style="font-size:12px;font-weight:500" id="learn-status">—</span>
     </div>
     <div class="learn-row">
-      <span style="font-size:12px;color:var(--color-text-secondary)">Nauczona sprawność</span>
+      <span style="font-size:12px;color:var(--color-text-secondary,#666)">Learned efficiency</span>
       <span style="font-size:12px;font-weight:500" id="learn-eff">—</span>
     </div>
     <div class="learn-row">
-      <span style="font-size:12px;color:var(--color-text-secondary)">Kalibracje</span>
+      <span style="font-size:12px;color:var(--color-text-secondary,#666)">Calibrations</span>
       <span style="font-size:12px;font-weight:500" id="learn-count">—</span>
     </div>
     <div class="learn-row">
-      <span style="font-size:12px;color:var(--color-text-secondary)">Dryf vs OCV</span>
+      <span style="font-size:12px;color:var(--color-text-secondary,#666)">Drift vs OCV</span>
       <span style="font-size:12px;font-weight:500" id="learn-drift">—</span>
-    </div>
-  </div>
-
-  <!-- PV + PROGNOZA -->
-  <div class="grid2">
-    <div class="card">
-      <div class="card-label">Produkcja PV dziś</div>
-      <div class="pv-row"><span style="font-size:12px;color:var(--color-text-secondary)">Prognoza Solcast</span><span style="font-size:13px;font-weight:500" id="pv-today">—</span></div>
-      <div class="pv-row"><span style="font-size:12px;color:var(--color-text-secondary)">Pozostało dziś</span><span style="font-size:13px;font-weight:500" id="pv-remain">—</span></div>
-      <div class="pv-row"><span style="font-size:12px;color:var(--color-text-secondary)">Szczyt o</span><span style="font-size:13px;font-weight:500" id="pv-peak">—</span></div>
-    </div>
-    <div class="card">
-      <div class="card-label">Pogoda i cena RCE</div>
-      <div class="pv-row"><span style="font-size:12px;color:var(--color-text-secondary)">Temperatura</span><span style="font-size:13px;font-weight:500" id="weather-temp">—</span></div>
-      <div class="pv-row"><span style="font-size:12px;color:var(--color-text-secondary)">RCE teraz</span><span style="font-size:13px;font-weight:500" id="rce-val">—</span></div>
-      <div class="pv-row"><span style="font-size:12px;color:var(--color-text-secondary)">Prognoza jutro</span><span style="font-size:13px;font-weight:500" id="pv-tomorrow">—</span></div>
-    </div>
-  </div>
-
-  <!-- SYSTEM INFO -->
-  <div class="card">
-    <div class="card-label">Architektura systemu</div>
-    <div class="bat-row">
-      <div class="bat-dot" style="background:#BA7517"></div>
-      <div class="bat-name">Falownik</div>
-      <div class="bat-detail">Deye SUN-8K-SG04LP3-EU · 7 kW PV</div>
-      <div class="bat-pct">🔋</div>
-    </div>
-    <div class="bat-row">
-      <div class="bat-dot" style="background:#378ADD"></div>
-      <div class="bat-name">Home Assistant</div>
-      <div class="bat-detail">PV BRAIN + Battery Fusion v2.1</div>
-      <div class="bat-pct">🧠</div>
-    </div>
-    <div class="bat-row">
-      <div class="bat-dot" style="background:#888780"></div>
-      <div class="bat-name">ESP32</div>
-      <div class="bat-detail">WaveShare RS485-CAN · YamBMS · w drodze</div>
-      <div class="bat-pct">⏳</div>
     </div>
   </div>
 
 </div>
 
 <script>
-const TOTAL_CAP = 28.5;
-const FEL_CAP   = 12.5;
-const JK_CAP    = 16.0;
+// =============================================================
+// BATTERY FUSION DASHBOARD — CONFIGURATION
+// Edit these values to match your setup
+// =============================================================
+const BF_CONFIG = {
+  // Authentication — paste your Long-Lived Access Token here
+  // Get it from: HA → Profile → Security → Long-Lived Access Tokens
+  token: '',   // e.g. 'eyJ0eXAiOi...'
+
+  // Battery names (shown in the battery rows)
+  bat1Name: 'Battery 1',
+  bat2Name: 'Battery 2',
+
+  // Optional: override if you want static labels in the header
+  // Leave empty to auto-generate from HA state
+  headerSub: '',   // e.g. 'LiFePO4 12.5 kWh + NMC 16.0 kWh'
+
+  // Optional: set to true if bf_learning.yaml is active
+  // Dashboard will show the adaptive learning card
+  learningEnabled: true,
+
+  // Optional: extra sensor for voltage display in status card
+  // Leave empty to skip
+  voltageSensor: 'sensor.inverter_battery_voltage',
+
+  // Optional: additional sensors to show (set to '' to hide)
+  // These are NOT core Battery Fusion entities — they are extras
+  // specific to your installation. Set to '' if you don't have them.
+  extraSensors: {
+    temperature: '',       // e.g. 'sensor.inverter_battery_temperature'
+  }
+};
+// =============================================================
+// END OF CONFIGURATION
+// =============================================================
+
+// Read token from URL param if not set above
+const urlParams = new URLSearchParams(window.location.search);
+const TOKEN = BF_CONFIG.token || urlParams.get('token') || window.__HA_TOKEN || '';
 
 const data = {
-  soc: null, energy: null, current: null, power: null,
+  soc: null, energy: null, power: null, status: null, voltage: null,
+  bat1Cap: null, bat2Cap: null, totalCap: null,
+  bat1Name: null, bat2Name: null,
+  vFull: null, vEmpty: null,
   learnStatus: null, learnEff: null, learnCount: null, learnDrift: null,
-  pvNow: null, solcastNow: null, pvToday: null, pvRemain: null, pvTomorrow: null,
-  rce: null, temp: null, weatherTemp: null
+  overloadThreshold: null, lowSocThreshold: null,
 };
 
-function fmt(v, dec=1) { return v != null && !isNaN(v) ? Number(v).toFixed(dec) : '—'; }
+function fmt(v, dec=1) {
+  return (v != null && !isNaN(v)) ? Number(v).toFixed(dec) : '—';
+}
 
 function render() {
-  const { soc, energy, current, power } = data;
+  const { soc, energy, power, status, totalCap, bat1Cap, bat2Cap,
+          bat1Name, bat2Name, vFull, vEmpty } = data;
 
-  document.getElementById('alert-overload').style.display =
-    (current != null && power != null && current > 120 && power > 5000) ? 'block' : 'none';
+  // Alerts
+  const lowSocThresh = data.lowSocThreshold || 15;
+  document.getElementById('alert-overload').style.display = 'none'; // driven by status
   document.getElementById('alert-low-soc').style.display =
-    (soc != null && soc < 15) ? 'block' : 'none';
+    (soc != null && soc < lowSocThresh) ? 'block' : 'none';
 
+  // Header sub-line
+  if (BF_CONFIG.headerSub) {
+    document.getElementById('header-sub').textContent = BF_CONFIG.headerSub;
+  } else if (bat1Cap != null && totalCap != null) {
+    const cap2 = bat2Cap || 0;
+    if (cap2 > 0) {
+      document.getElementById('header-sub').textContent =
+        (bat1Name || 'Battery 1') + ' ' + fmt(bat1Cap,1) + ' kWh + ' +
+        (bat2Name || 'Battery 2') + ' ' + fmt(cap2,1) + ' kWh · total ' + fmt(totalCap,1) + ' kWh · v2.1';
+    } else {
+      document.getElementById('header-sub').textContent =
+        (bat1Name || 'Battery 1') + ' ' + fmt(bat1Cap,1) + ' kWh · v2.1';
+    }
+  } else {
+    document.getElementById('header-sub').textContent = 'Battery Fusion v2.1';
+  }
+
+  // SoC
   if (soc != null) {
     document.getElementById('soc-val').innerHTML = fmt(soc,1) + '<span class="card-unit">%</span>';
-    document.getElementById('soc-bar').style.width = Math.min(100, soc) + '%';
+    document.getElementById('soc-bar').style.width = Math.min(100, Math.max(0, soc)) + '%';
     document.getElementById('soc-bar').style.background =
       soc > 50 ? '#639922' : soc > 15 ? '#BA7517' : '#E24B4A';
   }
-  if (energy != null) {
-    document.getElementById('soc-kwh').textContent = fmt(energy,2) + ' kWh z ' + TOTAL_CAP + ' kWh';
-    document.getElementById('fel-pct').textContent = fmt(energy * FEL_CAP / TOTAL_CAP / FEL_CAP * 100, 1) + '%';
-    document.getElementById('jk-pct').textContent  = fmt(energy * JK_CAP  / TOTAL_CAP / JK_CAP  * 100, 1) + '%';
+  if (energy != null && totalCap != null) {
+    document.getElementById('soc-kwh').textContent = fmt(energy,2) + ' kWh of ' + fmt(totalCap,1) + ' kWh';
+  }
+  if (vFull != null && vEmpty != null) {
+    document.getElementById('calib-note').textContent =
+      'auto-calibration: >' + vFull + 'V → 100% / <' + vEmpty + 'V → 0%';
+  }
+
+  // Power
+  if (power != null) {
+    document.getElementById('power-val').innerHTML = fmt(power,0) + '<span class="card-unit">W</span>';
+    document.getElementById('power-sub').textContent =
+      power > 100 ? '↓ discharging' : power < -100 ? '↑ charging' : '⏸ idle';
+  }
+
+  // Status
+  if (status) {
+    const statusLabels = {
+      'charging':    '↑ Charging',
+      'discharging': '↓ Discharging',
+      'idle':        '⏸ Idle',
+      'low_soc':     '⚠ Low SoC'
+    };
+    document.getElementById('status-val').textContent = statusLabels[status] || status;
+  }
+  if (data.voltage != null) {
+    document.getElementById('voltage-sub').textContent = fmt(data.voltage, 1) + ' V';
+  }
+
+  // Battery rows
+  if (bat1Name) document.getElementById('bat1-name').textContent = bat1Name;
+  if (bat2Name) document.getElementById('bat2-name').textContent = bat2Name;
+  else { document.getElementById('bat2-name').textContent = BF_CONFIG.bat2Name; }
+  document.getElementById('bat1-name').textContent = bat1Name || BF_CONFIG.bat1Name;
+
+  if (bat1Cap != null) {
+    document.getElementById('bat1-detail').textContent = fmt(bat1Cap,1) + ' kWh';
+  }
+  if (bat2Cap != null && bat2Cap > 0) {
+    document.getElementById('bat2-detail').textContent = fmt(bat2Cap,1) + ' kWh';
+  } else {
+    document.getElementById('bat2-detail').textContent = 'not configured (set capacity to 0)';
+  }
+
+  if (energy != null && totalCap != null && totalCap > 0) {
+    const cap1 = bat1Cap || 0;
+    const cap2 = bat2Cap || 0;
+    if (cap1 > 0)
+      document.getElementById('bat1-pct').textContent = fmt(energy / totalCap * 100, 1) + '%';
+    if (cap2 > 0)
+      document.getElementById('bat2-pct').textContent = fmt(energy / totalCap * 100, 1) + '%';
+  }
+
+  // Status pills
+  if (soc != null) {
     const pills = document.getElementById('status-pills');
     pills.innerHTML = '';
-    const defs = [
-      ['pill-green',  'Coulomb Counter aktywny'],
-      ['pill-blue',   'Felicity równolegle'],
-      ['pill-amber',  'YamBMS wkrótce'],
-      ['pill-purple', 'Uczenie aktywne'],
-    ];
-    if (soc != null && soc < 15) defs.push(['pill-red', 'Niski SoC!']);
+    const defs = [['pill-green', 'Coulomb Counter active']];
+    if (status === 'charging')    defs.push(['pill-blue', 'Charging']);
+    if (status === 'discharging') defs.push(['pill-amber', 'Discharging']);
+    if (status === 'idle')        defs.push(['pill-gray', 'Idle']);
+    if (soc < lowSocThresh)       defs.push(['pill-red', 'Low SoC!']);
+    if (data.learnStatus && data.learnStatus !== 'no data')
+      defs.push(['pill-gray', 'Learning: ' + data.learnStatus]);
     defs.forEach(([cls, txt]) => {
       const s = document.createElement('span');
       s.className = 'pill ' + cls; s.textContent = txt;
@@ -219,73 +312,88 @@ function render() {
     });
   }
 
-  if (data.temp != null) {
-    document.getElementById('temp-val').innerHTML = fmt(data.temp,0) + '<span class="card-unit">°C</span>';
+  // Learning card
+  if (BF_CONFIG.learningEnabled && data.learnStatus != null) {
+    document.getElementById('learning-card').style.display = 'block';
+    document.getElementById('learn-status').textContent = data.learnStatus;
+    if (data.learnEff != null)
+      document.getElementById('learn-eff').textContent = fmt(data.learnEff * 100, 1) + '%';
+    if (data.learnCount != null)
+      document.getElementById('learn-count').textContent = data.learnCount + ' calibrations';
+    if (data.learnDrift != null)
+      document.getElementById('learn-drift').textContent =
+        (data.learnDrift === 'unavailable' ? '— (battery active)' : fmt(data.learnDrift, 2) + '%');
   }
-  if (data.learnStatus) document.getElementById('learn-status').textContent = data.learnStatus;
-  if (data.learnEff != null) document.getElementById('learn-eff').textContent = fmt(data.learnEff * 100, 1) + '%';
-  if (data.learnCount != null) document.getElementById('learn-count').textContent = data.learnCount + ' kalibracji';
-  if (data.learnDrift != null) document.getElementById('learn-drift').textContent =
-    (data.learnDrift === 'unavailable' ? '— (bateria aktywna)' : fmt(data.learnDrift, 2) + '%');
-
-  if (data.pvNow != null)     document.getElementById('pv-val').innerHTML = fmt(data.pvNow,0) + '<span class="card-unit">W</span>';
-  if (data.solcastNow != null) document.getElementById('pv-sub').textContent = 'Solcast: ' + fmt(data.solcastNow,0) + ' W';
-  if (data.pvToday != null)   document.getElementById('pv-today').textContent = fmt(data.pvToday,2) + ' kWh';
-  if (data.pvRemain != null)  document.getElementById('pv-remain').textContent = fmt(data.pvRemain,2) + ' kWh';
-  if (data.pvTomorrow != null) document.getElementById('pv-tomorrow').textContent = fmt(data.pvTomorrow,2) + ' kWh';
-  if (data.rce != null)       document.getElementById('rce-val').textContent = fmt(data.rce,2) + ' PLN/MWh';
-  if (data.weatherTemp != null) document.getElementById('weather-temp').textContent = fmt(data.weatherTemp,1) + '°C';
 }
 
 async function fetchState(entity) {
-  const res = await fetch('/api/states/' + entity, {
-    headers: { 'Authorization': 'Bearer ' + (window.__HA_TOKEN || '') }
-  });
-  if (!res.ok) return null;
-  return await res.json();
+  if (!entity) return null;
+  try {
+    const res = await fetch('/api/states/' + entity, {
+      headers: { 'Authorization': 'Bearer ' + TOKEN }
+    });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch (e) { return null; }
 }
 
 async function fetchHA() {
-  try {
-    const s = await fetchState('sensor.battery_soc_coulomb');
-    if (s) { data.soc = parseFloat(s.state); data.energy = parseFloat(s.attributes.energy_kwh); }
-  } catch(e) {}
-  try {
-    const c = await fetchState('sensor.inverter_battery_current');
-    if (c) data.current = parseFloat(c.state);
-    const p = await fetchState('sensor.inverter_battery_power');
-    if (p) data.power = parseFloat(p.state);
-    const t = await fetchState('sensor.inverter_battery_temperature');
-    if (t) data.temp = parseFloat(t.state);
-  } catch(e) {}
-  try {
-    const ls = await fetchState('sensor.bf_learn_statystyki');
+  // Core Battery Fusion entities
+  const soc = await fetchState('sensor.battery_fusion_soc');
+  if (soc) {
+    data.soc    = parseFloat(soc.state);
+    data.energy = parseFloat(soc.attributes.energy_kwh);
+    data.bat1Cap = parseFloat(soc.attributes.battery_1_capacity_kwh);
+    data.bat2Cap = parseFloat(soc.attributes.battery_2_capacity_kwh);
+    data.totalCap = parseFloat(soc.attributes.total_capacity_kwh);
+  }
+
+  const pwr = await fetchState('sensor.battery_fusion_power_normalized');
+  if (pwr) data.power = parseFloat(pwr.state);
+
+  const st = await fetchState('sensor.battery_fusion_status');
+  if (st) {
+    data.status  = st.state;
+    data.voltage = parseFloat(st.attributes.voltage);
+  }
+
+  // Configuration helpers (for display)
+  const vFull = await fetchState('input_number.bf_voltage_full');
+  if (vFull) data.vFull = parseFloat(vFull.state);
+
+  const vEmpty = await fetchState('input_number.bf_voltage_empty');
+  if (vEmpty) data.vEmpty = parseFloat(vEmpty.state);
+
+  const lowSoc = await fetchState('input_number.bf_low_soc_threshold');
+  if (lowSoc) data.lowSocThreshold = parseFloat(lowSoc.state);
+
+  const bat1Name = await fetchState('input_text.bf_battery_1_name');
+  if (bat1Name) data.bat1Name = bat1Name.state;
+
+  const bat2Name = await fetchState('input_text.bf_battery_2_name');
+  if (bat2Name) data.bat2Name = bat2Name.state;
+
+  // Adaptive learning (optional — only populated if bf_learning.yaml is loaded)
+  if (BF_CONFIG.learningEnabled) {
+    const ls = await fetchState('sensor.bf_learn_statistics');
     if (ls) data.learnStatus = ls.state;
+
     const le = await fetchState('input_number.bf_learned_efficiency');
     if (le) data.learnEff = parseFloat(le.state);
+
     const lc = await fetchState('input_number.bf_calibration_count');
     if (lc) data.learnCount = parseInt(lc.state);
+
     const ld = await fetchState('sensor.bf_learn_drift_vs_ocv');
     if (ld) data.learnDrift = ld.state === 'unavailable' ? 'unavailable' : parseFloat(ld.state);
-  } catch(e) {}
-  try {
-    const pv = await fetchState('sensor.solcast_pv_forecast_aktualna_moc');
-    if (pv) data.pvNow = parseFloat(pv.state);
-    const sc = await fetchState('sensor.solcast_pv_forecast_moc_w_30_minut');
-    if (sc) data.solcastNow = parseFloat(sc.state);
-    const pt = await fetchState('sensor.solcast_pv_forecast_prognoza_na_dzisiaj');
-    if (pt) data.pvToday = parseFloat(pt.state);
-    const pr = await fetchState('sensor.solcast_pv_forecast_pozostala_prognoza_na_dzis');
-    if (pr) data.pvRemain = parseFloat(pr.state);
-    const ptm = await fetchState('sensor.solcast_pv_forecast_prognoza_na_jutro');
-    if (ptm) data.pvTomorrow = parseFloat(ptm.state);
-  } catch(e) {}
-  try {
-    const rce = await fetchState('sensor.rce_pse_cena');
-    if (rce) data.rce = parseFloat(rce.state);
-    const wt = await fetchState('sensor.warszawa_temperatura');
-    if (wt) data.weatherTemp = parseFloat(wt.state);
-  } catch(e) {}
+  }
+
+  // Optional voltage sensor (for display)
+  if (BF_CONFIG.voltageSensor && !data.voltage) {
+    const vs = await fetchState(BF_CONFIG.voltageSensor);
+    if (vs) data.voltage = parseFloat(vs.state);
+  }
+
   render();
 }
 
