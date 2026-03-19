@@ -207,7 +207,7 @@ Battery-Fusion/
 - [x] Adaptive learning with OCV correction (v2.1)
 - [x] Live HTML dashboard
 - [ ] HACS integration (in progress)
-- [ ] Lovelace dashboard YAML card
+- [x] Lovelace dashboard YAML card (`dashboard/battery_fusion_card.yaml`)
 - [ ] Support for 3+ batteries with individual sensor inputs
 - [ ] Energy dashboard integration
 

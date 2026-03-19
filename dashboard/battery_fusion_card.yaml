@@ -1,0 +1,139 @@
+# =============================================================
+# BATTERY FUSION — Lovelace Entities Card (template)
+# Version: 2.1
+#
+# USAGE:
+#   1. Open your Lovelace dashboard in Edit mode
+#   2. Add card → Manual → paste the content below
+#   3. No entity ID changes needed if you use the standard
+#      Battery Fusion package names from bf_configuration.yaml
+#
+# If you renamed any input_number / input_text helpers,
+# update the entity IDs in this file accordingly.
+#
+# Entities used (all created by bf_configuration.yaml):
+#   sensor.battery_fusion_soc
+#   sensor.battery_fusion_power_normalized
+#   sensor.battery_fusion_status
+#   input_number.bf_battery_energy_kwh
+#   input_number.bf_battery_1_capacity_kwh
+#   input_number.bf_battery_2_capacity_kwh
+#   input_number.bf_battery_energy_kwh        ← manual calibration
+#   input_number.bf_voltage_full
+#   input_number.bf_voltage_empty
+#   script.battery_fusion_calibrate_from_voltage (optional — see below)
+# =============================================================
+
+type: entities
+title: Battery Fusion
+show_header_toggle: false
+
+entities:
+
+  # -----------------------------------------------------------
+  # STATE OF CHARGE
+  # -----------------------------------------------------------
+  - type: section
+    label: State of Charge
+
+  - entity: sensor.battery_fusion_soc
+    name: Combined SoC
+    icon: mdi:battery-charging
+
+  - type: attribute
+    entity: sensor.battery_fusion_soc
+    attribute: battery_1_soc_est
+    name: Battery 1 SoC (est.)
+    icon: mdi:battery-outline
+    suffix: "%"
+
+  - type: attribute
+    entity: sensor.battery_fusion_soc
+    attribute: battery_2_soc_est
+    name: Battery 2 SoC (est.)
+    icon: mdi:battery-outline
+    suffix: "%"
+
+  # -----------------------------------------------------------
+  # ENERGY & POWER
+  # -----------------------------------------------------------
+  - type: section
+    label: Energy & Power
+
+  - entity: input_number.bf_battery_energy_kwh
+    name: Total Energy
+    icon: mdi:lightning-bolt
+
+  - entity: sensor.battery_fusion_power_normalized
+    name: Power
+    icon: mdi:transmission-tower
+
+  - entity: sensor.battery_fusion_status
+    name: State
+    icon: mdi:information-outline
+
+  # -----------------------------------------------------------
+  # CALIBRATION — manual initial SoC
+  # Set these when first setting up or after a long offline period.
+  # Formula: energy_kwh = (bat1_soc% / 100 × cap1) + (bat2_soc% / 100 × cap2)
+  # -----------------------------------------------------------
+  - type: section
+    label: Calibration
+
+  - entity: input_number.bf_battery_1_capacity_kwh
+    name: Battery 1 capacity (kWh)
+    icon: mdi:battery
+
+  - entity: input_number.bf_battery_2_capacity_kwh
+    name: Battery 2 capacity (kWh)
+    icon: mdi:battery
+
+  - entity: input_number.bf_battery_energy_kwh
+    name: Set energy (manual calibration)
+    icon: mdi:pencil
+
+  # -----------------------------------------------------------
+  # VOLTAGE THRESHOLDS
+  # -----------------------------------------------------------
+  - type: section
+    label: Voltage thresholds
+
+  - entity: input_number.bf_voltage_full
+    name: Voltage at 100%
+    icon: mdi:lightning-bolt
+
+  - entity: input_number.bf_voltage_empty
+    name: Voltage at 0%
+    icon: mdi:lightning-bolt-outline
+
+  # -----------------------------------------------------------
+  # CALIBRATE FROM VOLTAGE
+  # Requires a script entity — see note below.
+  #
+  # To enable this button, create a script in HA:
+  #
+  #   script:
+  #     battery_fusion_calibrate_from_voltage:
+  #       alias: "BF: Calibrate from voltage"
+  #       sequence:
+  #         - service: input_number.set_value
+  #           target:
+  #             entity_id: input_number.bf_battery_energy_kwh
+  #           data:
+  #             value: >
+  #               {% set v = states(states('input_text.bf_voltage_sensor')) | float(0) %}
+  #               {% set v_full  = states('input_number.bf_voltage_full')  | float(55.0) %}
+  #               {% set v_empty = states('input_number.bf_voltage_empty') | float(48.0) %}
+  #               {% set cap = states('input_number.bf_battery_1_capacity_kwh') | float(0)
+  #                          + states('input_number.bf_battery_2_capacity_kwh') | float(0) %}
+  #               {% set soc = ((v - v_empty) / (v_full - v_empty)) | float(0) | max(0) | min(1) %}
+  #               {{ (soc * cap) | round(3) }}
+  #
+  # -----------------------------------------------------------
+  - type: section
+    label: Actions
+
+  - entity: script.battery_fusion_calibrate_from_voltage
+    name: Calibrate from voltage
+    icon: mdi:tune
+    # Remove or comment out this entry if you haven't created the script above
