@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#12122a">
+  <meta name="description" content="Polski dziennik treningowy – śledź swój progres na siłowni">
+  <link rel="manifest" href="manifest.json">
+  <title>Dziennik Treningowy</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div id="app">
+
+  <!-- HEADER -->
+  <header id="app-header">
+    <span id="header-title">Dziennik Treningowy</span>
+    <span id="header-workout-timer" class="header-timer hidden"></span>
+  </header>
+
+  <!-- VIEWS -->
+  <main id="main-content">
+
+    <!-- ══ WIDOK: GŁÓWNA ══ -->
+    <section id="view-home" class="view active">
+      <div class="hero-section">
+        <button id="btn-start-empty-workout" class="btn btn-accent btn-xl">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+          Rozpocznij pusty trening
+        </button>
+      </div>
+
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-value" id="stat-total">0</div>
+          <div class="stat-label">Treningi łącznie</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="stat-week">0</div>
+          <div class="stat-label">Ten tydzień</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="stat-volume">0</div>
+          <div class="stat-label">kg łącznie</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="stat-streak">0</div>
+          <div class="stat-label">Dni z rzędu</div>
+        </div>
+      </div>
+
+      <div class="section-header">
+        <h2 class="section-title">Szablony</h2>
+        <button id="btn-new-template" class="btn btn-ghost btn-sm">+ Nowy</button>
+      </div>
+      <div id="templates-container">
+        <p class="empty-hint">Brak szablonów. Utwórz szablon, by szybko zaczynać trening.</p>
+      </div>
+
+      <div class="section-header">
+        <h2 class="section-title">Ostatnie treningi</h2>
+      </div>
+      <div id="recent-workouts-container">
+        <p class="empty-hint">Brak treningów. Czas na siłownię! 💪</p>
+      </div>
+    </section>
+
+    <!-- ══ WIDOK: AKTYWNY TRENING ══ -->
+    <section id="view-workout" class="view">
+      <div class="workout-topbar">
+        <div class="workout-topbar-left">
+          <input id="workout-name-input" class="workout-name-input" type="text" value="Trening" maxlength="40">
+          <div id="workout-elapsed" class="workout-elapsed">0:00</div>
+        </div>
+        <div class="workout-topbar-right">
+          <button id="btn-discard-workout" class="btn btn-ghost btn-sm">Porzuć</button>
+          <button id="btn-finish-workout" class="btn btn-accent btn-sm">Zakończ</button>
+        </div>
+      </div>
+
+      <div id="active-exercises-list"></div>
+
+      <div class="workout-bottom-actions">
+        <button id="btn-add-exercise-to-workout" class="btn btn-secondary btn-full">
+          + Dodaj ćwiczenie
+        </button>
+      </div>
+    </section>
+
+    <!-- ══ WIDOK: BIBLIOTEKA ĆWICZEŃ ══ -->
+    <section id="view-exercises" class="view">
+      <div class="search-bar-wrapper">
+        <input id="exercise-search-input" type="text" class="search-input" placeholder="Szukaj ćwiczenia...">
+      </div>
+      <div id="muscle-filter-chips" class="chip-row"></div>
+      <div id="exercises-catalog-list"></div>
+    </section>
+
+    <!-- ══ WIDOK: HISTORIA ══ -->
+    <section id="view-history" class="view">
+      <div id="history-list-container">
+        <p class="empty-hint">Brak historii treningów.</p>
+      </div>
+    </section>
+
+    <!-- ══ WIDOK: POSTĘP ══ -->
+    <section id="view-progress" class="view">
+      <div class="progress-select-wrapper">
+        <label class="field-label">Wybierz ćwiczenie</label>
+        <select id="progress-exercise-select" class="select-field">
+          <option value="">— wybierz —</option>
+        </select>
+      </div>
+      <div id="progress-content" class="progress-content hidden">
+        <div class="pr-banner" id="pr-banner">
+          <span class="pr-label">Rekord osobisty</span>
+          <span class="pr-value" id="pr-value">—</span>
+        </div>
+        <div class="chart-card">
+          <h3 class="chart-title">Ciężar (kg) – maks. w sesji</h3>
+          <canvas id="chart-weight" height="200"></canvas>
+        </div>
+        <div class="chart-card">
+          <h3 class="chart-title">Objętość (kg × serie)</h3>
+          <canvas id="chart-volume" height="200"></canvas>
+        </div>
+      </div>
+      <p class="empty-hint" id="progress-empty-hint">Wybierz ćwiczenie, aby zobaczyć postęp.</p>
+    </section>
+
+  </main>
+
+  <!-- BOTTOM NAV -->
+  <nav id="bottom-nav">
+    <button class="nav-item active" data-view="home">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
+      <span>Główna</span>
+    </button>
+    <button class="nav-item" data-view="exercises">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M20.57 14.86L22 13.43 20.57 12 17 15.57 8.43 7 12 3.43 10.57 2 9.14 3.43 7.71 2 5.57 4.14 4.14 2.71 2.71 4.14l1.43 1.43L2 7.71l1.43 1.43L2 10.57 3.43 12 7 8.43 15.57 17 12 20.57 13.43 22l1.43-1.43L16.29 22l2.14-2.14 1.43 1.43 1.43-1.43-1.43-1.43L22 16.29z"/></svg>
+      <span>Ćwiczenia</span>
+    </button>
+    <button class="nav-item" data-view="history">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M13 3c-4.97 0-9 4.03-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42C8.27 19.99 10.51 21 13 21c4.97 0 9-4.03 9-9s-4.03-9-9-9zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z"/></svg>
+      <span>Historia</span>
+    </button>
+    <button class="nav-item" data-view="progress">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M16 6l2.29 2.29-4.88 4.88-4-4L2 16.59 3.41 18l6-6 4 4 6.3-6.29L22 12V6z"/></svg>
+      <span>Postęp</span>
+    </button>
+  </nav>
+
+</div><!-- /#app -->
+
+<!-- ══════════════════ MODALS ══════════════════ -->
+
+<!-- Modal: Wybierz ćwiczenie -->
+<div id="modal-pick-exercise" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-label="Wybierz ćwiczenie">
+  <div class="modal-sheet">
+    <div class="modal-drag-handle"></div>
+    <div class="modal-header">
+      <h2 class="modal-title">Dodaj ćwiczenie</h2>
+      <button class="btn-icon" onclick="App.closeModal('pick-exercise')">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+      </button>
+    </div>
+    <input id="modal-exercise-search" type="text" class="search-input" placeholder="Szukaj...">
+    <div id="modal-muscle-chips" class="chip-row"></div>
+    <div id="modal-exercise-list" class="modal-scroll-list"></div>
+  </div>
+</div>
+
+<!-- Modal: Szczegóły treningu (historia) -->
+<div id="modal-workout-detail" class="modal-overlay hidden" role="dialog" aria-modal="true">
+  <div class="modal-sheet modal-sheet-full">
+    <div class="modal-drag-handle"></div>
+    <div class="modal-header">
+      <h2 class="modal-title" id="detail-workout-name">Trening</h2>
+      <button class="btn-icon" onclick="App.closeModal('workout-detail')">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+      </button>
+    </div>
+    <div id="detail-meta" class="detail-meta"></div>
+    <div id="detail-exercises" class="modal-scroll-list"></div>
+    <div class="modal-footer">
+      <button id="btn-delete-workout" class="btn btn-danger btn-full">Usuń trening</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Timer odpoczynku -->
+<div id="modal-rest-timer" class="modal-overlay hidden" role="dialog" aria-modal="true">
+  <div class="modal-sheet modal-sheet-small modal-centered">
+    <div class="modal-header">
+      <h2 class="modal-title">Odpoczynek</h2>
+      <button class="btn-icon" onclick="App.closeRestTimer()">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+      </button>
+    </div>
+    <div class="rest-timer-display">
+      <svg class="rest-circle" viewBox="0 0 120 120">
+        <circle class="rest-circle-bg" cx="60" cy="60" r="54"/>
+        <circle class="rest-circle-progress" id="rest-circle-progress" cx="60" cy="60" r="54"/>
+      </svg>
+      <span id="rest-timer-seconds" class="rest-seconds">60</span>
+    </div>
+    <div class="rest-controls">
+      <button onclick="App.adjustRest(-15)" class="btn btn-ghost">−15s</button>
+      <button onclick="App.skipRest()" class="btn btn-accent">Pomiń</button>
+      <button onclick="App.adjustRest(+15)" class="btn btn-ghost">+15s</button>
+    </div>
+    <div class="rest-preset-row">
+      <button onclick="App.setRest(30)" class="btn btn-ghost btn-sm">30s</button>
+      <button onclick="App.setRest(60)" class="btn btn-ghost btn-sm">1 min</button>
+      <button onclick="App.setRest(90)" class="btn btn-ghost btn-sm">1:30</button>
+      <button onclick="App.setRest(120)" class="btn btn-ghost btn-sm">2 min</button>
+      <button onclick="App.setRest(180)" class="btn btn-ghost btn-sm">3 min</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Zakończ trening -->
+<div id="modal-finish-workout" class="modal-overlay hidden" role="dialog" aria-modal="true">
+  <div class="modal-sheet">
+    <div class="modal-drag-handle"></div>
+    <div class="modal-header">
+      <h2 class="modal-title">Zakończ trening</h2>
+      <button class="btn-icon" onclick="App.closeModal('finish-workout')">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+      </button>
+    </div>
+    <div id="finish-summary" class="finish-summary"></div>
+    <div class="modal-footer">
+      <button id="btn-save-finish" class="btn btn-accent btn-full">Zapisz trening</button>
+      <button onclick="App.closeModal('finish-workout')" class="btn btn-ghost btn-full">Kontynuuj trening</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Nowy szablon -->
+<div id="modal-new-template" class="modal-overlay hidden" role="dialog" aria-modal="true">
+  <div class="modal-sheet">
+    <div class="modal-drag-handle"></div>
+    <div class="modal-header">
+      <h2 class="modal-title">Nowy szablon</h2>
+      <button class="btn-icon" onclick="App.closeModal('new-template')">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+      </button>
+    </div>
+    <label class="field-label">Nazwa szablonu</label>
+    <input id="template-name-input" class="text-input" type="text" placeholder="np. Trening A – klatka i triceps">
+    <div class="modal-footer">
+      <button id="btn-save-template" class="btn btn-accent btn-full">Utwórz szablon</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Szczegóły ćwiczenia -->
+<div id="modal-exercise-detail" class="modal-overlay hidden" role="dialog" aria-modal="true">
+  <div class="modal-sheet">
+    <div class="modal-drag-handle"></div>
+    <div class="modal-header">
+      <h2 class="modal-title" id="ex-detail-name">Ćwiczenie</h2>
+      <button class="btn-icon" onclick="App.closeModal('exercise-detail')">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+      </button>
+    </div>
+    <div id="ex-detail-body" class="exercise-detail-body"></div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
